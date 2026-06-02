@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Quiz 6 Metas Internacionais",
+  "description": "Plataforma de treinamento e avaliação sobre as 6 Metas Internacionais de Segurança do Paciente.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
