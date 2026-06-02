@@ -1,4 +1,4 @@
-timport { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { User } from '../types';
 import { StickerDefinition, StickerRarity } from './store';
 
