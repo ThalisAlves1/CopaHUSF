@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+timport { createClient } from '@supabase/supabase-js';
 import { User } from '../types';
 import { StickerDefinition, StickerRarity } from './store';
 
@@ -260,12 +260,12 @@ export const DB_DEFAULT_STICKERS: StickerDefinition[] = [
 ];
 
 // Helper to prevent database queries from hanging indefinitely if network/firewall/CORS is failing
-const SUPABASE_TIMEOUT_MS = 30000;
+const SUPABASE_TIMEOUT_MS = 45000;
 
 function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs = SUPABASE_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error(`Conexão com Supabase demorou mais de ${timeoutMs / 1000}s. Isso geralmente é instabilidade/cold start do Supabase, internet bloqueando a API ou uma consulta pesada.`));
+      reject(new Error(`Conexão com Supabase demorou mais de ${timeoutMs / 1000}s. Isso geralmente acontece quando o projeto está pausado/iniciando, quando a internet bloqueia a API ou quando havia imagens/base64 pesadas salvas no banco.`));
     }, timeoutMs);
     promise.then(
       (res) => {
@@ -499,9 +499,11 @@ export async function dbSaveUsers(users: User[]): Promise<void> {
       updated_at: new Date().toISOString()
     }));
 
-    const { error } = await supabaseClient
-      .from('husf_users')
-      .upsert(payloads, { onConflict: 'cpf' });
+    const { error } = await promiseWithTimeout(
+      supabaseClient
+        .from('husf_users')
+        .upsert(payloads, { onConflict: 'cpf' }) as any
+    ) as any;
 
     if (error) throw error;
   } catch (err) {
@@ -561,10 +563,12 @@ export async function dbDeleteUser(cpf: string): Promise<void> {
   if (!isSupabaseConfigured || !supabaseClient) return;
 
   try {
-    const { error } = await supabaseClient
-      .from('husf_users')
-      .delete()
-      .eq('cpf', cpf);
+    const { error } = await promiseWithTimeout(
+      supabaseClient
+        .from('husf_users')
+        .delete()
+        .eq('cpf', cpf) as any
+    ) as any;
 
     if (error) throw error;
   } catch (err) {
@@ -629,13 +633,15 @@ export async function dbSaveReleasedMetas(metas: number[]): Promise<void> {
 
   if (!isSupabaseConfigured || !supabaseClient) return;
 
-  const { error } = await supabaseClient
-    .from('husf_settings')
-    .upsert({
-      key: 'released_metas',
-      value: cleanMetas,
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'key' });
+  const { error } = await promiseWithTimeout(
+    supabaseClient
+      .from('husf_settings')
+      .upsert({
+        key: 'released_metas',
+        value: cleanMetas,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' }) as any
+  ) as any;
 
   if (error) {
     console.error('Failed to sync released metas to Supabase:', error);
@@ -648,8 +654,12 @@ export async function dbSaveReleasedMetas(metas: number[]): Promise<void> {
 // STICKERS CATALOG SYNCHRONIZATION HELPERS
 // ────────────────────────────────────────────────────────────────────────
 
+function getDefaultStickerImagePath(id: number): string | undefined {
+  return id <= 18 ? `/assets/images/sticker_${id}.webp` : undefined;
+}
+
 function normalizeStickerImagePath(id: number, image?: string | null): string | undefined {
-  const fallback = id <= 18 ? `/assets/images/sticker_${id}.webp` : undefined;
+  const fallback = getDefaultStickerImagePath(id);
   if (!image || !image.trim()) return fallback;
 
   let clean = image.trim().replace('/src/assets/', '/assets/');
@@ -667,6 +677,18 @@ function normalizeStickerImagePath(id: number, image?: string | null): string | 
   }
 
   return clean || fallback;
+}
+
+function normalizeStickerImageForDatabase(id: number, image?: string | null): string | null {
+  const normalized = normalizeStickerImagePath(id, image);
+
+  // Nunca salve base64 no Supabase. Isso deixa as consultas lentas e pode travar o app no celular.
+  // Para as figurinhas padrão, usamos arquivos leves em /public/assets/images.
+  if (!normalized || normalized.startsWith('data:')) {
+    return getDefaultStickerImagePath(id) || null;
+  }
+
+  return normalized;
 }
 
 function trySetLocalCatalog(catalog: StickerDefinition[]) {
@@ -718,10 +740,12 @@ export async function dbGetStickers(): Promise<StickerDefinition[]> {
   }
 
   try {
+    // Busca principal SEM a coluna image.
+    // Se existirem imagens antigas em base64 no banco, trazer essa coluna pode estourar o tempo de resposta.
     const { data, error } = await promiseWithTimeout(
       supabaseClient
         .from('husf_stickers')
-        .select('id,name,rarity,image')
+        .select('id,name,rarity')
         .order('id', { ascending: true }) as any,
       15000
     ) as any;
@@ -729,6 +753,28 @@ export async function dbGetStickers(): Promise<StickerDefinition[]> {
     if (error) throw error;
 
     if (data && data.length > 0) {
+      const imageById = new Map<number, string>();
+
+      // Tenta carregar somente imagens externas/caminhos de figurinhas personalizadas.
+      // Base64 é ignorado de propósito para não travar o app.
+      try {
+        const { data: customImages } = await promiseWithTimeout(
+          supabaseClient
+            .from('husf_stickers')
+            .select('id,image')
+            .gt('id', 18)
+            .not('image', 'like', 'data:%')
+            .limit(500) as any,
+          8000
+        ) as any;
+
+        (customImages || []).forEach((row: any) => {
+          if (row?.id && row?.image) imageById.set(Number(row.id), String(row.image));
+        });
+      } catch (imageErr) {
+        console.warn('Não foi possível carregar imagens personalizadas; usando catálogo leve:', imageErr);
+      }
+
       const parsed: StickerDefinition[] = data.map((s) => {
         let parsedRarity = s.rarity || 'regular';
         let parsedPage: 'trabalho' | 'evolucao' | 'hall' | undefined = undefined;
@@ -747,7 +793,7 @@ export async function dbGetStickers(): Promise<StickerDefinition[]> {
           id: s.id,
           name: s.name,
           rarity: parsedRarity as StickerRarity,
-          image: normalizeStickerImagePath(s.id, s.image),
+          image: normalizeStickerImagePath(s.id, imageById.get(Number(s.id))),
           page: parsedPage
         };
       });
@@ -780,13 +826,15 @@ export async function dbSaveWholeCatalog(stickers: StickerDefinition[]): Promise
       id: s.id,
       name: s.name,
       rarity: `${s.page}:${s.rarity}`,
-      image: normalizeStickerImagePath(s.id, s.image) || null
+      image: normalizeStickerImageForDatabase(s.id, s.image)
     }));
 
     // Perform massive upsert or block inserts
-    const { error } = await supabaseClient
-      .from('husf_stickers')
-      .upsert(payloads, { onConflict: 'id' });
+    const { error } = await promiseWithTimeout(
+      supabaseClient
+        .from('husf_stickers')
+        .upsert(payloads, { onConflict: 'id' }) as any
+    ) as any;
 
     if (error) throw error;
   } catch (err) {
@@ -800,14 +848,16 @@ export async function dbInsertSticker(sticker: StickerDefinition): Promise<void>
   // If Supabase is configured, do the remote insert first to verify
   if (isSupabaseConfigured && supabaseClient) {
     try {
-      const { error } = await supabaseClient
-        .from('husf_stickers')
-        .insert({
-          id: sticker.id,
-          name: sticker.name,
-          rarity: `${pageVal}:${sticker.rarity}`,
-          image: normalizeStickerImagePath(sticker.id, sticker.image) || null
-        });
+      const { error } = await promiseWithTimeout(
+        supabaseClient
+          .from('husf_stickers')
+          .insert({
+            id: sticker.id,
+            name: sticker.name,
+            rarity: `${pageVal}:${sticker.rarity}`,
+            image: normalizeStickerImageForDatabase(sticker.id, sticker.image)
+          }) as any
+      ) as any;
 
       if (error) throw error;
     } catch (err) {
@@ -829,14 +879,16 @@ export async function dbUpdateSticker(sticker: StickerDefinition): Promise<void>
   
   if (isSupabaseConfigured && supabaseClient) {
     try {
-      const { error } = await supabaseClient
-        .from('husf_stickers')
-        .upsert({
-          id: sticker.id,
-          name: sticker.name,
-          rarity: `${pageVal}:${sticker.rarity}`,
-          image: normalizeStickerImagePath(sticker.id, sticker.image) || null
-        }, { onConflict: 'id' });
+      const { error } = await promiseWithTimeout(
+        supabaseClient
+          .from('husf_stickers')
+          .upsert({
+            id: sticker.id,
+            name: sticker.name,
+            rarity: `${pageVal}:${sticker.rarity}`,
+            image: normalizeStickerImageForDatabase(sticker.id, sticker.image)
+          }, { onConflict: 'id' }) as any
+      ) as any;
 
       if (error) throw error;
     } catch (err) {
@@ -859,10 +911,12 @@ export async function dbDeleteSticker(id: number): Promise<void> {
   // If Supabase is configured, delete from remote first
   if (isSupabaseConfigured && supabaseClient) {
     try {
-      const { error } = await supabaseClient
-        .from('husf_stickers')
-        .delete()
-        .eq('id', id);
+      const { error } = await promiseWithTimeout(
+        supabaseClient
+          .from('husf_stickers')
+          .delete()
+          .eq('id', id) as any
+      ) as any;
 
       if (error) throw error;
     } catch (err) {
@@ -969,9 +1023,12 @@ export async function dbUpsertTrade(trade: TradeSessionModel): Promise<void> {
       expires_at: trade.expiresAt
     };
 
-    const { error } = await supabaseClient
-      .from('husf_trades')
-      .upsert(payload, { onConflict: 'id' });
+    const { error } = await promiseWithTimeout(
+      supabaseClient
+        .from('husf_trades')
+        .upsert(payload, { onConflict: 'id' }) as any,
+      15000
+    ) as any;
 
     if (error) throw error;
   } catch (err) {
