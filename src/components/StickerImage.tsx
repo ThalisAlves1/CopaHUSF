@@ -14,28 +14,40 @@ export function StickerImage({ id, name, className = "", customImage }: StickerI
 
   const candidateSources = useMemo(() => {
     const list: string[] = [];
+    const add = (src?: string | null) => {
+      if (!src) return;
+      const clean = src.trim();
+      if (!clean) return;
+      if (!list.includes(clean)) list.push(clean);
+    };
+
+    const addWebpSibling = (src: string) => {
+      if (/\.(png|jpg|jpeg)$/i.test(src)) {
+        add(src.replace(/\.(png|jpg|jpeg)$/i, '.webp'));
+      }
+    };
+
     if (customImage && customImage.trim().length > 0) {
-      const trimmed = customImage.trim();
-      list.push(trimmed);
-      
-      // If it's just a filename like "celso-conexao-meta2.png" (no slashes, not absolute/base64),
-      // look for it in /src/assets/images/ and other asset paths!
-      if (!trimmed.startsWith('http') && !trimmed.startsWith('data:') && !trimmed.startsWith('/')) {
-        list.push(`/src/assets/images/${trimmed}`);
-        list.push(`/assets/images/${trimmed}`);
-        list.push(`./src/assets/images/${trimmed}`);
+      const trimmed = customImage.trim().replace('/src/assets/', '/assets/');
+
+      if (trimmed.startsWith('data:') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        add(trimmed);
+      } else if (trimmed.startsWith('/')) {
+        addWebpSibling(trimmed);
+        add(trimmed);
+      } else {
+        // If it is just a filename like "celso-conexao-meta2.png", resolve inside public/assets/images.
+        addWebpSibling(`/assets/images/${trimmed}`);
+        add(`/assets/images/${trimmed}`);
       }
     }
-    // Candidate paths sorted by priority
-    list.push(
-      `/src/assets/images/sticker_${id}.png`,
-      `/src/assets/images/sticker_${id}.jpg`,
-      `/src/assets/images/sticker_${id}.jpeg`,
-      `/src/assets/images/stickers/sticker_${id}.png`,
-      `/src/assets/images/stickers/sticker_${id}.jpg`,
-      `/src/assets/images/stickers/sticker_${id}.jpeg`,
-      `/assets/images/sticker_${id}.png`
-    );
+
+    // Public folder assets are served from /assets in Vite builds. Prefer lightweight WebP first.
+    add(`/assets/images/sticker_${id}.webp`);
+    add(`/assets/images/sticker_${id}.png`);
+    add(`/assets/images/sticker_${id}.jpg`);
+    add(`/assets/images/sticker_${id}.jpeg`);
+
     return list;
   }, [id, customImage]);
 

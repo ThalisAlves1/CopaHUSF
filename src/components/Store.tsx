@@ -217,7 +217,7 @@ export function Store({ coins, onBuyPack }: StoreProps) {
                             transition={{ delay: 0.3 + (idx * 0.15), type: 'spring' }}
                           >
                             <div className="scale-50 sm:scale-100 origin-center mb-0 sm:mb-0 w-full h-16 sm:h-24 flex items-center justify-center">
-                              <StickerImage id={sticker.id} name={sticker.name} customImage={sticker.image?.startsWith('data:') ? sticker.image : undefined} />
+                              <StickerImage id={sticker.id} name={sticker.name} customImage={sticker.image} />
                             </div>
                           </motion.div>
                           <span className="font-bold text-[7px] sm:text-[11px] md:text-xs uppercase tracking-widest opacity-90 mb-0.5 sm:mb-3 block line-clamp-1">{sticker.rarity}</span>

@@ -15,13 +15,14 @@ export const STATIC_STICKERS: StickerDefinition[] = [
     name: `Figurinha Meta ${(i % 6) + 1} - #${i + 1}`,
     rarity: 'regular' as StickerRarity,
     page: (i < 6 ? 'trabalho' : 'evolucao') as 'trabalho' | 'evolucao' | 'hall',
-    image: `/assets/images/sticker_${i + 1}.png`
+    image: `/assets/images/sticker_${i + 1}.webp`
   })),
-  { id: 13, name: 'Celso Paredão', rarity: 'holografica', page: 'hall', image: '/assets/images/sticker_13.png' },
-  { id: 14, name: 'Speak Up', rarity: 'holografica', page: 'hall', image: '/assets/images/sticker_14.png' },
-  { id: 15, name: 'Lampião', rarity: 'lendaria', page: 'hall', image: '/assets/images/sticker_15.png' },
-  { id: 16, name: 'Mãos Limpas', rarity: 'lendaria', page: 'hall', image: '/assets/images/sticker_16.png' },
-  { id: 17, name: 'Suprema Bola de Ouro', rarity: 'suprema', page: 'hall', image: '/assets/images/sticker_17.png' }
+  { id: 13, name: 'Celso Paredão', rarity: 'holografica', page: 'hall', image: '/assets/images/sticker_13.webp' },
+  { id: 14, name: 'Speak Up', rarity: 'holografica', page: 'hall', image: '/assets/images/sticker_14.webp' },
+  { id: 15, name: 'Lampião', rarity: 'lendaria', page: 'hall', image: '/assets/images/sticker_15.webp' },
+  { id: 16, name: 'Mãos Limpas', rarity: 'lendaria', page: 'hall', image: '/assets/images/sticker_16.webp' },
+  { id: 17, name: 'Suprema Bola de Ouro', rarity: 'suprema', page: 'hall', image: '/assets/images/sticker_17.webp' },
+  { id: 18, name: 'Celso Paredão Especial', rarity: 'holografica', page: 'hall', image: '/assets/images/sticker_18.webp' }
 ];
 
 // Get stickers from localStorage, with predefined initial values
@@ -37,11 +38,17 @@ export function getStoredStickers(): StickerDefinition[] {
             else if (s.id >= 7 && s.id <= 12) s.page = 'evolucao';
             else s.page = 'hall';
           }
-          if (s.image && s.image.startsWith('/src/assets/')) {
-            s.image = s.image.replace('/src/assets/', '/');
+          if (s.image) {
+            s.image = s.image.replace('/src/assets/', '/assets/');
+            if (!s.image.startsWith('data:') && !s.image.startsWith('http://') && !s.image.startsWith('https://') && !s.image.startsWith('/')) {
+              s.image = `/assets/images/${s.image}`;
+            }
+            if (/\.(png|jpg|jpeg)$/i.test(s.image) && s.image.includes('/assets/images/sticker_')) {
+              s.image = s.image.replace(/\.(png|jpg|jpeg)$/i, '.webp');
+            }
           }
-          if (!s.image && s.id <= 17) {
-            s.image = `/assets/images/sticker_${s.id}.png`;
+          if (!s.image && s.id <= 18) {
+            s.image = `/assets/images/sticker_${s.id}.webp`;
           }
           return s;
         });
@@ -70,8 +77,8 @@ export function saveStoredStickers(stickers: StickerDefinition[]) {
     const stripped = stickers.map(s => {
       const { image, ...sWithoutImg } = s;
       // Keep static references only, custom uploaded base64 gets stripped to protect storage
-      if (s.id <= 17) {
-        return { ...s, image: `/assets/images/sticker_${s.id}.png` };
+      if (s.id <= 18) {
+        return { ...s, image: `/assets/images/sticker_${s.id}.webp` };
       }
       return sWithoutImg;
     });

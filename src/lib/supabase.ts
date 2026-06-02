@@ -207,12 +207,12 @@ export async function dbFindUserByCpf(cpf: string): Promise<User | null> {
 
   if (isSupabaseConfigured && supabaseClient) {
     try {
+      const variants = cpfSearchVariants(cpf);
       const { data, error } = await promiseWithTimeout(
         supabaseClient
           .from('husf_users')
-          .select('*')
-          .limit(5000) as any,
-        15000
+          .select('cpf,name,sector,coins,stickers,progress,is_admin')
+          .in('cpf', variants) as any
       ) as any;
 
       if (error) throw error;
@@ -247,20 +247,25 @@ export const DB_DEFAULT_STICKERS: StickerDefinition[] = [
   ...Array.from({ length: 12 }).map((_, i) => ({
     id: i + 1,
     name: `Figurinha Meta ${(i % 6) + 1} - #${i + 1}`,
-    rarity: 'regular' as StickerRarity
+    rarity: 'regular' as StickerRarity,
+    page: (i < 6 ? 'trabalho' : 'evolucao') as 'trabalho' | 'evolucao',
+    image: `/assets/images/sticker_${i + 1}.webp`
   })),
-  { id: 13, name: 'Celso Paredão', rarity: 'holografica' },
-  { id: 14, name: 'Speak Up', rarity: 'holografica' },
-  { id: 15, name: 'Lampião', rarity: 'lendaria' },
-  { id: 16, name: 'Mãos Limpas', rarity: 'lendaria' },
-  { id: 17, name: 'Suprema Bola de Ouro', rarity: 'suprema' }
+  { id: 13, name: 'Celso Paredão', rarity: 'holografica', page: 'hall', image: '/assets/images/sticker_13.webp' },
+  { id: 14, name: 'Speak Up', rarity: 'holografica', page: 'hall', image: '/assets/images/sticker_14.webp' },
+  { id: 15, name: 'Lampião', rarity: 'lendaria', page: 'hall', image: '/assets/images/sticker_15.webp' },
+  { id: 16, name: 'Mãos Limpas', rarity: 'lendaria', page: 'hall', image: '/assets/images/sticker_16.webp' },
+  { id: 17, name: 'Suprema Bola de Ouro', rarity: 'suprema', page: 'hall', image: '/assets/images/sticker_17.webp' },
+  { id: 18, name: 'Celso Paredão Especial', rarity: 'holografica', page: 'hall', image: '/assets/images/sticker_18.webp' }
 ];
 
 // Helper to prevent database queries from hanging indefinitely if network/firewall/CORS is failing
-function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs = 15000): Promise<T> {
+const SUPABASE_TIMEOUT_MS = 30000;
+
+function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs = SUPABASE_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error(`Superou tempo limite de resposta da nuvem (${timeoutMs / 1000}s)`));
+      reject(new Error(`Conexão com Supabase demorou mais de ${timeoutMs / 1000}s. Isso geralmente é instabilidade/cold start do Supabase, internet bloqueando a API ou uma consulta pesada.`));
     }, timeoutMs);
     promise.then(
       (res) => {
@@ -273,6 +278,24 @@ function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs = 15000): Promise<
       }
     );
   });
+}
+
+function formatCpfFromDigits(digits: string): string {
+  return digits
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+}
+
+function cpfSearchVariants(cpf: string): string[] {
+  const clean = normalizeCpf(cpf);
+  const values = new Set<string>();
+  if (cpf) values.add(String(cpf).trim());
+  if (clean) {
+    values.add(clean);
+    values.add(formatCpfFromDigits(clean));
+  }
+  return [...values].filter(Boolean);
 }
 
 // Helper para estabelecer conexões Realtime com as tabelas do Supabase
@@ -393,10 +416,9 @@ export async function dbGetUsers(): Promise<User[]> {
       const { data, error } = await promiseWithTimeout(
         supabaseClient
           .from('husf_users')
-          .select('*')
+          .select('cpf,name,sector,coins,stickers,progress,is_admin')
           .order('name', { ascending: true })
-          .range(page * pageSize, (page + 1) * pageSize - 1) as any,
-        15000
+          .range(page * pageSize, (page + 1) * pageSize - 1) as any
       ) as any;
 
       if (error) throw error;
@@ -488,34 +510,44 @@ export async function dbSaveUsers(users: User[]): Promise<void> {
 }
 
 export async function dbSaveSingleUser(user: User): Promise<void> {
-  // Update local storage too to prevent state inconsistency
-  const localUsers = await dbGetUsers();
-  const index = localUsers.findIndex(u => u.cpf === user.cpf);
-  if (index !== -1) {
-    localUsers[index] = user;
-  } else {
-    localUsers.push(user);
+  // Update local storage without querying Supabase first. This avoids a 30s wait when the cloud is slow.
+  try {
+    const raw = localStorage.getItem('husf_users');
+    const parsed = raw ? JSON.parse(raw) : DB_DEFAULT_USERS;
+    const localUsers: User[] = Array.isArray(parsed) ? parsed : DB_DEFAULT_USERS;
+    const index = localUsers.findIndex(u => normalizeCpf(u.cpf) === normalizeCpf(user.cpf));
+    if (index !== -1) {
+      localUsers[index] = user;
+    } else {
+      localUsers.push(user);
+    }
+    localStorage.setItem('husf_users', JSON.stringify(localUsers));
+  } catch {
+    localStorage.setItem('husf_users', JSON.stringify([user]));
   }
-  localStorage.setItem('husf_users', JSON.stringify(localUsers));
 
   if (!isSupabaseConfigured || !supabaseClient) return;
 
   try {
-    const { error } = await supabaseClient
-      .from('husf_users')
-      .upsert({
-        cpf: user.cpf,
-        name: user.name,
-        sector: user.sector,
-        coins: user.coins,
-        stickers: user.stickers,
-        progress: user.progress,
-        is_admin: !!user.isAdmin,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'cpf' });
+    const { error } = await promiseWithTimeout(
+      supabaseClient
+        .from('husf_users')
+        .upsert({
+          cpf: user.cpf,
+          name: user.name,
+          sector: user.sector,
+          coins: user.coins,
+          stickers: user.stickers,
+          progress: user.progress,
+          is_admin: !!user.isAdmin,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'cpf' }) as any
+    ) as any;
 
     if (error) throw error;
+    lastSupabaseError = null;
   } catch (err) {
+    lastSupabaseError = err instanceof Error ? err.message : String(err);
     console.error(`Failed to sync individual user ${user.cpf} to Supabase:`, err);
     throw err;
   }
@@ -616,6 +648,27 @@ export async function dbSaveReleasedMetas(metas: number[]): Promise<void> {
 // STICKERS CATALOG SYNCHRONIZATION HELPERS
 // ────────────────────────────────────────────────────────────────────────
 
+function normalizeStickerImagePath(id: number, image?: string | null): string | undefined {
+  const fallback = id <= 18 ? `/assets/images/sticker_${id}.webp` : undefined;
+  if (!image || !image.trim()) return fallback;
+
+  let clean = image.trim().replace('/src/assets/', '/assets/');
+
+  if (clean.startsWith('data:') || clean.startsWith('http://') || clean.startsWith('https://')) {
+    return clean;
+  }
+
+  if (!clean.startsWith('/')) {
+    clean = `/assets/images/${clean}`;
+  }
+
+  if (/\.(png|jpg|jpeg)$/i.test(clean) && clean.includes('/assets/images/sticker_')) {
+    clean = clean.replace(/\.(png|jpg|jpeg)$/i, '.webp');
+  }
+
+  return clean || fallback;
+}
+
 function trySetLocalCatalog(catalog: StickerDefinition[]) {
   try {
     localStorage.setItem('husf_sticker_catalog', JSON.stringify(catalog));
@@ -623,8 +676,8 @@ function trySetLocalCatalog(catalog: StickerDefinition[]) {
     console.warn('Falha ao gravar catálogo de figurinhas no localStorage (cota excedida). Salvando versão compactada sem imagens base64.');
     const stripped = catalog.map(s => {
       const { image, ...sWithoutImg } = s;
-      if (s.id <= 17) {
-        return { ...s, image: `/src/assets/images/sticker_${s.id}.png` };
+      if (s.id <= 18) {
+        return { ...s, image: `/assets/images/sticker_${s.id}.webp` };
       }
       return sWithoutImg;
     });
@@ -654,7 +707,7 @@ export async function dbGetStickers(): Promise<StickerDefinition[]> {
     }
     const seeded: StickerDefinition[] = DB_DEFAULT_STICKERS.map(s => {
       const page: 'trabalho' | 'evolucao' | 'hall' = s.id >= 1 && s.id <= 6 ? 'trabalho' : s.id >= 7 && s.id <= 12 ? 'evolucao' : 'hall';
-      return { ...s, page };
+      return { ...s, page, image: normalizeStickerImagePath(s.id, s.image) };
     });
     trySetLocalCatalog(seeded);
     return seeded;
@@ -668,7 +721,7 @@ export async function dbGetStickers(): Promise<StickerDefinition[]> {
     const { data, error } = await promiseWithTimeout(
       supabaseClient
         .from('husf_stickers')
-        .select('*')
+        .select('id,name,rarity,image')
         .order('id', { ascending: true }) as any,
       15000
     ) as any;
@@ -694,7 +747,7 @@ export async function dbGetStickers(): Promise<StickerDefinition[]> {
           id: s.id,
           name: s.name,
           rarity: parsedRarity as StickerRarity,
-          image: s.image || undefined,
+          image: normalizeStickerImagePath(s.id, s.image),
           page: parsedPage
         };
       });
@@ -727,7 +780,7 @@ export async function dbSaveWholeCatalog(stickers: StickerDefinition[]): Promise
       id: s.id,
       name: s.name,
       rarity: `${s.page}:${s.rarity}`,
-      image: s.image || null
+      image: normalizeStickerImagePath(s.id, s.image) || null
     }));
 
     // Perform massive upsert or block inserts
@@ -753,7 +806,7 @@ export async function dbInsertSticker(sticker: StickerDefinition): Promise<void>
           id: sticker.id,
           name: sticker.name,
           rarity: `${pageVal}:${sticker.rarity}`,
-          image: sticker.image || null
+          image: normalizeStickerImagePath(sticker.id, sticker.image) || null
         });
 
       if (error) throw error;
@@ -782,7 +835,7 @@ export async function dbUpdateSticker(sticker: StickerDefinition): Promise<void>
           id: sticker.id,
           name: sticker.name,
           rarity: `${pageVal}:${sticker.rarity}`,
-          image: sticker.image || null
+          image: normalizeStickerImagePath(sticker.id, sticker.image) || null
         }, { onConflict: 'id' });
 
       if (error) throw error;

@@ -240,7 +240,7 @@ export function Trading({ user, onTradeComplete }: TradingProps) {
     return (
       <div className={`w-32 aspect-[2.5/3.5] rounded-xl flex flex-col items-center justify-center p-3 text-center border-[4px] ${getRarityColor(s.rarity)} shadow-md`}>
         <div className="flex-1 w-full min-h-0 flex flex-col justify-center">
-          <StickerImage id={s.id} name={s.name} customImage={s.image?.startsWith('data:') ? s.image : undefined} />
+          <StickerImage id={s.id} name={s.name} customImage={s.image} />
         </div>
         <span className="font-bold text-[9px] uppercase tracking-widest opacity-90 mt-2 mb-1">{s.rarity}</span>
         <h4 className="font-bold text-[10px] leading-tight font-[Space_Grotesk] line-clamp-3">{s.name}</h4>

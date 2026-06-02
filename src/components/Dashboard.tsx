@@ -1531,8 +1531,10 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       <div className="mt-3 bg-white p-3 rounded-lg border border-slate-200 text-[11px] text-slate-500 font-medium space-y-1">
                         <p className="text-slate-855 font-bold">Como resolver:</p>
                         <ul className="list-disc pl-4 space-y-0.5">
-                          <li>Verifique se as variáveis de URL e chave do Anon estão corretas e sem espaços extras.</li>
-                          <li>Certifique-se de que reiniciou o Dev Server do AI Studio para registrar as novas chaves.</li>
+                          <li>Abra o Supabase e confira se o projeto não está pausado/inativo. Em plano gratuito, o primeiro acesso pode demorar.</li>
+                          <li>Confirme se a URL e a Anon Key estão corretas, sem espaços extras, e reinicie o Dev Server do AI Studio.</li>
+                          <li>Rode novamente os scripts SQL de criação/correção das tabelas e do realtime.</li>
+                          <li>Evite salvar imagens base64 pesadas no banco; use caminhos como <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-purple-700">/assets/images/sticker_1.webp</code>.</li>
                         </ul>
                       </div>
                     )}
