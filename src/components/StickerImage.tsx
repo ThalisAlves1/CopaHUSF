@@ -288,7 +288,7 @@ export function StickerImage({ id, name, className = "", customImage }: StickerI
       {/* Sticker Name / Tag */}
       <div className="mt-2 text-center w-full px-1">
         <span 
-          className={`text-[7.5px] sm:text-[9px] uppercase font-black tracking-widest block line-clamp-1 py-0.5 px-1.5 rounded-md mx-auto truncate lg:max-w-full ${
+          className={`text-[7.5px] sm:text-[9px] uppercase font-black tracking-widest block line-clamp-2 leading-tight py-0.5 px-1.5 rounded-md mx-auto safe-text lg:max-w-full ${
             id >= 17 ? 'bg-yellow-400/25 text-yellow-800' :
             id >= 15 ? 'bg-fuchsia-400/25 text-fuchsia-350' :
             id >= 13 ? 'bg-cyan-400/25 text-cyan-800' :

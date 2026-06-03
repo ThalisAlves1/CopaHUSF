@@ -71,7 +71,7 @@ export function Store({ coins, onBuyPack }: StoreProps) {
 
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <ShoppingBag className="w-6 h-6 text-brand-500" />
@@ -79,7 +79,7 @@ export function Store({ coins, onBuyPack }: StoreProps) {
           </h2>
           <p className="text-slate-500 mt-1">Troque suas moedas por pacotes de figurinhas.</p>
         </div>
-        <div className="bg-amber-100 text-amber-700 px-4 py-2 rounded-xl flex items-center gap-2 font-bold text-lg">
+        <div className="bg-amber-100 text-amber-700 px-4 py-2 rounded-xl flex items-center gap-2 font-bold text-lg self-start sm:self-auto">
           <Coins className="w-6 h-6 text-amber-500" />
           {coins}
         </div>
@@ -102,9 +102,9 @@ export function Store({ coins, onBuyPack }: StoreProps) {
               )}
             </div>
             
-            <h3 className="text-xl font-bold text-slate-800 mb-2 font-[Space_Grotesk] leading-tight flex-1">{pkg.name}</h3>
+            <h3 className="text-lg sm:text-xl font-bold text-slate-800 mb-2 font-[Space_Grotesk] leading-tight flex-1 safe-text">{pkg.name}</h3>
             <div className="flex-1 flex flex-col items-center">
-              <p className="text-slate-500 mb-4 text-sm">{pkg.description}</p>
+              <p className="text-slate-500 mb-4 text-sm safe-text">{pkg.description}</p>
               <div className="bg-slate-50 text-slate-600 text-xs font-bold py-2 px-3 rounded-lg w-full mb-6 flex items-center justify-center border border-slate-100">
                 ✔️ {pkg.guaranteed}
               </div>

@@ -11,6 +11,31 @@
   --color-brand-700: #0f766e;
 }
 
+
+html, body, #root {
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+button, input, select, textarea {
+  max-width: 100%;
+  min-width: 0;
+}
+
+h1, h2, h3, h4, h5, h6, p, span, label, button, li, td, th {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+h1, h2, h3, h4, p {
+  text-wrap: pretty;
+}
+
 body {
   @apply bg-slate-50 text-slate-900 antialiased;
 }
@@ -27,6 +52,17 @@ body {
   .animate-shimmer {
     animation: shimmer 2s infinite linear;
   }
+  .safe-text {
+    overflow-wrap: anywhere;
+    word-break: normal;
+    hyphens: auto;
+  }
+
+  .safe-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+
 
   @keyframes shimmer {
     100% {

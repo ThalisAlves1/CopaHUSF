@@ -174,7 +174,7 @@ export function WelcomeScreen({ user, onNavigate, summary }: WelcomeScreenProps)
             </div>
 
             <div className="space-y-3">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold font-[Space_Grotesk] leading-tight tracking-tight">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold safe-text font-[Space_Grotesk] leading-tight tracking-tight">
                 {getGreeting()}, <span className="text-amber-300">{user.name}</span>!
               </h1>
               <p className="text-brand-50/95 text-base sm:text-lg max-w-2xl leading-relaxed font-normal">
@@ -227,21 +227,21 @@ export function WelcomeScreen({ user, onNavigate, summary }: WelcomeScreenProps)
             <div className="grid sm:grid-cols-3 gap-3">
               <button
                 onClick={() => onNavigate('desafios')}
-                className="bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-2xl p-4 font-black flex items-center justify-between gap-3 transition-all shadow-lg shadow-amber-950/10 active:scale-[0.98]"
+                className="bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-2xl p-4 text-sm sm:text-base font-black flex items-center justify-between gap-3 transition-all shadow-lg shadow-amber-950/10 active:scale-[0.98]"
               >
                 <span>{summary?.hasReleasedPendingMeta ? 'Continuar desafio' : 'Ver desafios'}</span>
                 <ArrowRight className="w-5 h-5" />
               </button>
               <button
                 onClick={() => onNavigate('ranking')}
-                className="bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-2xl p-4 font-bold flex items-center justify-between gap-3 transition-all active:scale-[0.98]"
+                className="bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-2xl p-4 text-sm sm:text-base font-bold flex items-center justify-between gap-3 transition-all active:scale-[0.98]"
               >
                 <span>Ver ranking</span>
                 <Crown className="w-5 h-5 text-amber-300" />
               </button>
               <button
                 onClick={() => onNavigate('album')}
-                className="bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-2xl p-4 font-bold flex items-center justify-between gap-3 transition-all active:scale-[0.98]"
+                className="bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-2xl p-4 text-sm sm:text-base font-bold flex items-center justify-between gap-3 transition-all active:scale-[0.98]"
               >
                 <span>Meu álbum</span>
                 <LayoutGrid className="w-5 h-5 text-sky-200" />
@@ -309,13 +309,13 @@ export function WelcomeScreen({ user, onNavigate, summary }: WelcomeScreenProps)
               <div className="flex items-start gap-3 text-sm">
                 <CalendarClock className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
                 <div className="min-w-0">
-                  <p className="font-black text-slate-800 truncate">{summary?.lastActivityTitle || 'Nenhuma atividade registrada ainda'}</p>
+                  <p className="font-black text-slate-800 safe-text">{summary?.lastActivityTitle || 'Nenhuma atividade registrada ainda'}</p>
                   <p className="text-xs text-slate-500 mt-0.5">{summary?.lastActivityTime || 'Responda um quiz para começar seu histórico.'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2.5 bg-brand-50 px-3 py-2.5 rounded-2xl border border-brand-100">
                 <Building2 className="w-4 h-4 text-brand-600 shrink-0" />
-                <p className="text-xs font-bold text-brand-900 truncate">Setor: {user.sector}</p>
+                <p className="text-xs font-bold text-brand-900 safe-text">Setor: {user.sector}</p>
               </div>
             </div>
           </div>

@@ -405,7 +405,7 @@ export function Trading({ user, onTradeComplete }: TradingProps) {
               value={scanCode}
               onChange={e => setScanCode(e.target.value.replace(/\D/g, ''))}
               placeholder="0000"
-              className="text-center text-5xl font-[Space_Grotesk] font-bold tracking-[0.5em] p-6 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-brand-500 focus:ring-4 focus:ring-brand-500/20 outline-none transition-all placeholder:text-slate-300"
+              className="text-center text-4xl sm:text-5xl font-[Space_Grotesk] font-bold tracking-[0.22em] sm:tracking-[0.5em] px-4 py-5 sm:p-6 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-brand-500 focus:ring-4 focus:ring-brand-500/20 outline-none transition-all placeholder:text-slate-300"
             />
             
             <button

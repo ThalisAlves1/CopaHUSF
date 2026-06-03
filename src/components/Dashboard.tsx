@@ -1246,7 +1246,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
         <div className="w-full lg:w-80 shrink-0 space-y-4 lg:space-y-6">
           
           {/* User Profile Card */}
-          <div className={`bg-white p-5 rounded-2xl shadow-sm border flex flex-col gap-4 ${user.isAdmin ? 'border-purple-300 ring-4 ring-purple-100/40 bg-gradient-to-b from-purple-50/20 via-white to-white' : 'border-slate-100'}`}>
+          <div className={`bg-white p-4 sm:p-5 rounded-2xl shadow-sm border flex flex-col gap-4 ${user.isAdmin ? 'border-purple-300 ring-4 ring-purple-100/40 bg-gradient-to-b from-purple-50/20 via-white to-white' : 'border-slate-100'}`}>
             <div className="flex items-center gap-4">
               <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl shrink-0 border-2 ${user.isAdmin ? 'bg-purple-100 text-purple-700 border-purple-300 shadow-sm' : 'bg-brand-100 text-brand-700 border-brand-200'}`}>
                 {user.name.charAt(0)}
@@ -1261,10 +1261,10 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                     </span>
                   )}
                 </div>
-                <h2 className="font-bold text-slate-800 text-xl leading-tight truncate font-[Space_Grotesk] uppercase">{user.name}</h2>
-                <div className="flex items-center text-xs sm:text-sm text-slate-500 gap-1.5 mt-1 truncate">
+                <h2 className="font-bold text-slate-800 text-lg sm:text-xl leading-tight safe-text font-[Space_Grotesk] uppercase">{user.name}</h2>
+                <div className="flex items-center text-xs sm:text-sm text-slate-500 gap-1.5 mt-1 safe-text">
                   <Building2 className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">{user.sector}</span>
+                  <span className="safe-text">{user.sector}</span>
                 </div>
 
 
@@ -1288,59 +1288,59 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
           </div>
 
           {/* Navigation */}
-          <div className="bg-white p-2 sm:p-3 lg:p-4 rounded-t-3xl sm:rounded-2xl shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.05)] sm:shadow-sm border-t sm:border border-slate-100 flex lg:flex-col gap-1 sm:gap-2 fixed sm:static bottom-0 left-0 right-0 z-50 justify-around lg:justify-start px-2 sm:px-3 lg:px-4 pb-6 sm:pb-3 lg:pb-4">
+          <div className="bg-white p-2 sm:p-3 lg:p-4 rounded-t-3xl sm:rounded-2xl shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.05)] sm:shadow-sm border-t sm:border border-slate-100 flex lg:flex-col gap-1 sm:gap-2 fixed sm:static bottom-0 left-0 right-0 z-50 justify-start lg:justify-start px-2 sm:px-3 lg:px-4 pb-6 sm:pb-3 lg:pb-4 overflow-x-auto hide-scrollbar">
             <button 
               onClick={() => handleTabChange('inicio')}
-              className={`group flex-1 lg:w-full min-w-[48px] sm:min-w-0 rounded-xl py-2 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-0.5 sm:gap-3 transition-all ${activeTab === 'inicio' ? 'bg-brand-600 text-white shadow-md scale-[1.03] sm:scale-100' : 'text-slate-500 hover:bg-slate-50'}`}
+              className={`group flex-none sm:flex-1 lg:w-full min-w-[58px] sm:min-w-0 rounded-xl py-2 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-0.5 sm:gap-3 transition-all ${activeTab === 'inicio' ? 'bg-brand-600 text-white shadow-md scale-[1.03] sm:scale-100' : 'text-slate-500 hover:bg-slate-50'}`}
             >
               <Home className={`w-5 h-5 sm:w-5 sm:h-5 ${activeTab === 'inicio' ? 'text-brand-200' : 'text-slate-400 group-hover:text-brand-500'}`} />
               <span className="text-[9px] sm:text-base leading-none">Início</span>
             </button>
             <button 
               onClick={() => handleTabChange('desafios')}
-              className={`group flex-1 lg:w-full min-w-[48px] sm:min-w-0 rounded-xl py-2 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-0.5 sm:gap-3 transition-all ${activeTab === 'desafios' ? 'bg-brand-600 text-white shadow-md scale-[1.03] sm:scale-100' : 'text-slate-500 hover:bg-slate-50'}`}
+              className={`group flex-none sm:flex-1 lg:w-full min-w-[58px] sm:min-w-0 rounded-xl py-2 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-0.5 sm:gap-3 transition-all ${activeTab === 'desafios' ? 'bg-brand-600 text-white shadow-md scale-[1.03] sm:scale-100' : 'text-slate-500 hover:bg-slate-50'}`}
             >
               <Trophy className={`w-5 h-5 sm:w-5 sm:h-5 ${activeTab === 'desafios' ? 'text-brand-200' : 'text-slate-400 group-hover:text-brand-500'}`} />
               <span className="text-[9px] sm:text-base leading-none">Desafios</span>
             </button>
             <button 
               onClick={() => handleTabChange('estudo')}
-              className={`group flex-1 lg:w-full min-w-[48px] sm:min-w-0 rounded-xl py-2 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-0.5 sm:gap-3 transition-all ${activeTab === 'estudo' ? 'bg-brand-600 text-white shadow-md scale-[1.03] sm:scale-100' : 'text-slate-500 hover:bg-slate-50'}`}
+              className={`group flex-none sm:flex-1 lg:w-full min-w-[58px] sm:min-w-0 rounded-xl py-2 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-0.5 sm:gap-3 transition-all ${activeTab === 'estudo' ? 'bg-brand-600 text-white shadow-md scale-[1.03] sm:scale-100' : 'text-slate-500 hover:bg-slate-50'}`}
             >
               <BookOpen className={`w-5 h-5 sm:w-5 sm:h-5 ${activeTab === 'estudo' ? 'text-brand-200' : 'text-slate-400 group-hover:text-brand-500'}`} />
               <span className="text-[9px] sm:text-base leading-none">Apostila</span>
             </button>
             <button 
               onClick={() => handleTabChange('album')}
-              className={`group flex-1 lg:w-full min-w-[48px] sm:min-w-0 rounded-xl py-2 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-0.5 sm:gap-3 transition-all ${activeTab === 'album' ? 'bg-brand-600 text-white shadow-md scale-[1.03] sm:scale-100' : 'text-slate-500 hover:bg-slate-50'}`}
+              className={`group flex-none sm:flex-1 lg:w-full min-w-[58px] sm:min-w-0 rounded-xl py-2 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-0.5 sm:gap-3 transition-all ${activeTab === 'album' ? 'bg-brand-600 text-white shadow-md scale-[1.03] sm:scale-100' : 'text-slate-500 hover:bg-slate-50'}`}
             >
               <LayoutGrid className={`w-5 h-5 sm:w-5 sm:h-5 ${activeTab === 'album' ? 'text-brand-200' : 'text-slate-400 group-hover:text-brand-500'}`} />
               <span className="text-[9px] sm:text-base leading-none">Álbum</span>
             </button>
             <button 
               onClick={() => handleTabChange('loja')}
-              className={`group flex-1 lg:w-full min-w-[48px] sm:min-w-0 rounded-xl py-2 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-0.5 sm:gap-3 transition-all ${activeTab === 'loja' ? 'bg-amber-500 text-white shadow-md scale-[1.03] sm:scale-100' : 'text-slate-500 hover:bg-amber-50'}`}
+              className={`group flex-none sm:flex-1 lg:w-full min-w-[58px] sm:min-w-0 rounded-xl py-2 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-0.5 sm:gap-3 transition-all ${activeTab === 'loja' ? 'bg-amber-500 text-white shadow-md scale-[1.03] sm:scale-100' : 'text-slate-500 hover:bg-amber-50'}`}
             >
               <ShoppingBag className={`w-5 h-5 sm:w-5 sm:h-5 ${activeTab === 'loja' ? 'text-amber-200' : 'text-slate-400 group-hover:text-amber-500'}`} />
               <span className="text-[9px] sm:text-base leading-none">Loja</span>
             </button>
             <button 
               onClick={() => handleTabChange('trocas')}
-              className={`group flex-1 lg:w-full min-w-[48px] sm:min-w-0 rounded-xl py-2 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-0.5 sm:gap-3 transition-all ${activeTab === 'trocas' ? 'bg-indigo-500 text-white shadow-md scale-[1.03] sm:scale-100' : 'text-slate-500 hover:bg-indigo-50'}`}
+              className={`group flex-none sm:flex-1 lg:w-full min-w-[58px] sm:min-w-0 rounded-xl py-2 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-0.5 sm:gap-3 transition-all ${activeTab === 'trocas' ? 'bg-indigo-500 text-white shadow-md scale-[1.03] sm:scale-100' : 'text-slate-500 hover:bg-indigo-50'}`}
             >
               <ArrowRightLeft className={`w-5 h-5 sm:w-5 sm:h-5 ${activeTab === 'trocas' ? 'text-indigo-200' : 'text-slate-400 group-hover:text-indigo-500'}`} />
               <span className="text-[9px] sm:text-base leading-none">Trocas</span>
             </button>
             <button 
               onClick={() => handleTabChange('ranking')}
-              className={`group flex-1 lg:w-full min-w-[48px] sm:min-w-0 rounded-xl py-2 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-0.5 sm:gap-3 transition-all ${activeTab === 'ranking' ? 'bg-brand-600 text-white shadow-md scale-[1.03] sm:scale-100' : 'text-slate-500 hover:bg-slate-50'}`}
+              className={`group flex-none sm:flex-1 lg:w-full min-w-[58px] sm:min-w-0 rounded-xl py-2 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-0.5 sm:gap-3 transition-all ${activeTab === 'ranking' ? 'bg-brand-600 text-white shadow-md scale-[1.03] sm:scale-100' : 'text-slate-500 hover:bg-slate-50'}`}
             >
               <Crown className={`w-5 h-5 sm:w-5 sm:h-5 ${activeTab === 'ranking' ? 'text-brand-200' : 'text-slate-400 group-hover:text-amber-500'}`} />
               <span className="text-[9px] sm:text-base leading-none">Ranking</span>
             </button>
             <button 
               onClick={() => handleTabChange('perfil')}
-              className={`group flex-1 lg:w-full min-w-[48px] sm:min-w-0 rounded-xl py-2 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-0.5 sm:gap-3 transition-all ${activeTab === 'perfil' ? 'bg-brand-600 text-white shadow-md scale-[1.03] sm:scale-100' : 'text-slate-500 hover:bg-slate-50'}`}
+              className={`group flex-none sm:flex-1 lg:w-full min-w-[58px] sm:min-w-0 rounded-xl py-2 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-0.5 sm:gap-3 transition-all ${activeTab === 'perfil' ? 'bg-brand-600 text-white shadow-md scale-[1.03] sm:scale-100' : 'text-slate-500 hover:bg-slate-50'}`}
             >
               <UserIcon className={`w-5 h-5 sm:w-5 sm:h-5 ${activeTab === 'perfil' ? 'text-brand-200' : 'text-slate-400 group-hover:text-brand-500'}`} />
               <span className="text-[9px] sm:text-base leading-none">Perfil</span>
@@ -1348,7 +1348,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
             {user.isAdmin && (
               <button 
                 onClick={() => handleTabChange('admin')}
-                className={`group flex-[0.8] lg:w-full min-w-[60px] sm:min-w-0 rounded-xl py-2 sm:py-3 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-1 sm:gap-3 transition-all ${activeTab === 'admin' ? 'bg-purple-600 text-white shadow-md scale-[1.03] sm:scale-100 animate-pulse' : 'text-purple-600 hover:bg-purple-50'}`}
+                className={`group flex-none sm:flex-[0.8] lg:w-full min-w-[66px] sm:min-w-0 rounded-xl py-2 sm:py-3 px-1 sm:px-4 font-bold flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-1 sm:gap-3 transition-all ${activeTab === 'admin' ? 'bg-purple-600 text-white shadow-md scale-[1.03] sm:scale-100 animate-pulse' : 'text-purple-600 hover:bg-purple-50'}`}
               >
                 <ShieldCheck className={`w-5 h-5 sm:w-5 sm:h-5 ${activeTab === 'admin' ? 'text-purple-200' : 'text-purple-500 group-hover:text-purple-600'}`} />
                 <span className="text-[10px] sm:text-base leading-none text-purple-700 font-extrabold group-hover:text-purple-800">Gestão</span>
@@ -1358,7 +1358,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 min-w-0 pb-20 sm:pb-0">
+        <div className="flex-1 min-w-0 pb-24 sm:pb-0">
           <AnimatePresence mode="wait">
           {activeTab === 'estudo' && (
             <motion.div
@@ -1417,7 +1417,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                         key={meta.id}
                         disabled={!canPlay}
                         onClick={() => handleSelectMeta(meta.id)}
-                        className={`group bg-white rounded-2xl p-4 md:p-5 shadow-sm border transition-all flex items-center gap-5 text-left relative overflow-hidden ${
+                        className={`group bg-white rounded-2xl p-4 md:p-5 shadow-sm border transition-all flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 text-left relative overflow-hidden ${
                           !canPlay 
                             ? 'bg-slate-50 border-slate-200/60 opacity-60 cursor-not-allowed' 
                             : 'bg-white border-slate-100 hover:border-brand-300 hover:shadow-md cursor-pointer'
@@ -1432,8 +1432,8 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-slate-800 text-lg mb-0.5 font-[Space_Grotesk] truncate">{meta.title}</h3>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-bold text-slate-800 text-lg mb-0.5 font-[Space_Grotesk] safe-text">{meta.title}</h3>
                             {!isReleased && (
                               <span className="bg-red-50 text-red-600 border border-red-100 text-[9px] font-bold px-1.5 py-0.5 rounded-md leading-none uppercase shrink-0">
                                 Bloqueada
@@ -1445,21 +1445,21 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                               </span>
                             )}
                           </div>
-                          <p className="text-slate-500 text-sm truncate">{meta.desc}</p>
+                          <p className="text-slate-500 text-sm safe-text">{meta.desc}</p>
                         </div>
                         
-                        <div className="shrink-0 flex items-center gap-4">
+                        <div className="w-full shrink-0 flex flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-start sm:gap-4">
                           {!isReleased ? (
-                            <span className="flex items-center gap-1.5 text-red-600 font-bold text-xs bg-red-50/50 px-2.5 py-1.5 rounded-lg border border-red-100">
+                            <span className="flex items-center gap-1.5 text-red-600 font-bold text-[11px] sm:text-xs bg-red-50/50 px-2.5 py-1.5 rounded-lg border border-red-100">
                               <Lock className="w-3.5 h-3.5 text-red-500" />
                               Aguardando Liberação
                             </span>
                           ) : isTreinoLivre ? (
-                            <span className="flex items-center gap-1.5 text-slate-500 font-bold text-sm bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                            <span className="flex items-center gap-1.5 text-slate-500 font-bold text-xs sm:text-sm bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
                               Treino
                             </span>
                           ) : (
-                            <span className="flex items-center gap-1.5 text-amber-600 font-bold text-sm bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100">
+                            <span className="flex items-center gap-1.5 text-amber-600 font-bold text-xs sm:text-sm bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100">
                               Top {totalCoins}/150 <Coins className="w-4 h-4" />
                             </span>
                           )}
@@ -1594,7 +1594,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                               (!hasAttemptsRemaining && !isTreinoLivre) ? 'bg-slate-200 text-slate-500 border-slate-300 cursor-not-allowed' : 'bg-brand-600 hover:bg-brand-700 text-white border-brand-600'
                             }`}
                           >
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <PlayCircle className="w-6 h-6 shrink-0" />
                               {(!hasAttemptsRemaining && !isTreinoLivre) ? 'Tentativas Esgotadas Hoje' : isTreinoLivre ? 'Modo Treino Livre' : 'Iniciar Quiz (20s p/ questão)'}
                             </div>
@@ -1700,7 +1700,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                                   </div>
                                   <div className="mt-auto mb-2 relative z-10 w-full px-1.5">
                                        <div className="bg-white/90 py-1.5 rounded-sm backdrop-blur-xs shadow-xs flex flex-col items-center justify-center">
-                                         <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-widest text-slate-500 line-clamp-1 truncate block px-1">{sticker.name}</span>
+                                         <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-widest text-slate-500 line-clamp-1 safe-text block px-1">{sticker.name}</span>
                                        </div>
                                   </div>
                                 </div>
@@ -1797,7 +1797,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       <div>
                         <p className="font-black">Critério do ranking individual: engajamento.</p>
                         <p className="text-brand-700 text-xs sm:text-sm mt-0.5">
-                          A posição considera o aproveitamento nos quizzes das metas, igual ao ranking dos setores. As moedas da carteira não definem a colocação.
+                          A posição agora considera o aproveitamento nos quizzes das metas, igual ao ranking dos setores. As moedas da carteira não definem mais a colocação.
                         </p>
                       </div>
                     </div>
@@ -1812,8 +1812,8 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                             {rankedUser.name.charAt(0)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-slate-800 truncate text-sm sm:text-base">{rankedUser.name}</h3>
-                            <p className="text-xs sm:text-sm text-slate-500 truncate">{rankedUser.sector}</p>
+                            <h3 className="font-bold text-slate-800 safe-text text-sm sm:text-base">{rankedUser.name}</h3>
+                            <p className="text-xs sm:text-sm text-slate-500 safe-text">{rankedUser.sector}</p>
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] sm:text-xs text-slate-500">
                               <span>Pontos Quizzes: <strong>{rankedUser.engagement.totalQuizCoins}</strong>/{rankedUser.engagement.maxQuizCoins}</span>
                               <span className="text-slate-300">•</span>
@@ -1888,7 +1888,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                               <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h3 className="font-bold text-slate-800 truncate text-sm sm:text-base">{sector.name}</h3>
+                              <h3 className="font-bold text-slate-800 safe-text text-sm sm:text-base">{sector.name}</h3>
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-xs text-slate-500">
                                 <span><strong>{sector.memberCount}</strong> {sector.memberCount === 1 ? 'membro' : 'membros'}</span>
                                 <span className="text-slate-300">•</span>
@@ -2118,19 +2118,19 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
               ) : null}
 
               {/* Stats row */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-1">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 space-y-1">
                   <div className="flex justify-between items-center text-slate-400">
-                    <span className="text-xs font-bold uppercase tracking-wide">Colaboradores</span>
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wide leading-tight">Colaboradores</span>
                     <UserCheck className="w-5 h-5 text-indigo-500" />
                   </div>
                   <p className="text-2xl font-black text-slate-800 font-[Space_Grotesk]">{usersList.length}</p>
                   <p className="text-[10px] text-indigo-500 font-semibold">Base ativa carregada</p>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-1">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 space-y-1">
                   <div className="flex justify-between items-center text-slate-400">
-                    <span className="text-xs font-bold uppercase tracking-wide">Moedas Totais</span>
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wide leading-tight">Moedas Totais</span>
                     <Coins className="w-5 h-5 text-amber-500" />
                   </div>
                   <p className="text-2xl font-black text-slate-800 font-[Space_Grotesk]">
@@ -2139,9 +2139,9 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                   <p className="text-[10px] text-amber-500 font-semibold">Moedas na economia</p>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-1">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 space-y-1">
                   <div className="flex justify-between items-center text-slate-400">
-                    <span className="text-xs font-bold uppercase tracking-wide">Setores Ativos</span>
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wide leading-tight">Setores Ativos</span>
                     <Building2 className="w-5 h-5 text-emerald-500" />
                   </div>
                   <p className="text-2xl font-black text-slate-800 font-[Space_Grotesk]">
@@ -2150,9 +2150,9 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                   <p className="text-[10px] text-emerald-500 font-semibold">Departamentos monitorados</p>
                 </div>
 
-                <div className={`p-5 rounded-2xl shadow-sm border space-y-1 ${isSupabaseConfigured ? 'bg-emerald-50/25 border-emerald-100' : 'bg-amber-50/20 border-amber-100'}`}>
+                <div className={`p-4 sm:p-5 rounded-2xl shadow-sm border space-y-1 ${isSupabaseConfigured ? 'bg-emerald-50/25 border-emerald-100' : 'bg-amber-50/20 border-amber-100'}`}>
                   <div className="flex justify-between items-center text-slate-400">
-                    <span className="text-xs font-bold uppercase tracking-wide">Banco de Dados</span>
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wide leading-tight">Banco de Dados</span>
                     {isSupabaseConfigured ? (
                       <Wifi className="w-4.5 h-4.5 text-emerald-500" />
                     ) : (
@@ -2183,18 +2183,18 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       key={item.id}
                       type="button"
                       onClick={() => handleAdminSectionChange(item.id as AdminSection)}
-                      className={`rounded-2xl p-3 sm:p-4 text-left transition-all border flex items-center gap-3 cursor-pointer active:scale-[0.98] ${
+                      className={`rounded-2xl p-3 sm:p-4 text-left transition-all border flex items-center gap-2 sm:gap-3 cursor-pointer active:scale-[0.98] ${
                         isActive
                           ? 'bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white border-amber-300/60 shadow-md'
                           : 'bg-slate-50/70 hover:bg-white text-slate-600 border-transparent hover:border-slate-200'
                       }`}
                     >
-                      <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isActive ? 'bg-amber-400 text-slate-950' : 'bg-white text-emerald-700 border border-slate-100'}`}>
+                      <span className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 ${isActive ? 'bg-amber-400 text-slate-950' : 'bg-white text-emerald-700 border border-slate-100'}`}>
                         {item.icon}
                       </span>
                       <span className="min-w-0">
-                        <span className="block text-xs sm:text-sm font-extrabold font-[Space_Grotesk] truncate">{item.label}</span>
-                        <span className={`block text-[10px] font-bold truncate ${isActive ? 'text-amber-100' : 'text-slate-400'}`}>{item.sub}</span>
+                        <span className="block text-[11px] sm:text-sm font-extrabold font-[Space_Grotesk] leading-tight safe-text">{item.label}</span>
+                        <span className={`block text-[9px] sm:text-[10px] font-bold leading-tight safe-text ${isActive ? 'text-amber-100' : 'text-slate-400'}`}>{item.sub}</span>
                       </span>
                     </button>
                   );
@@ -2313,7 +2313,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                         <span className="text-[10px] font-black uppercase tracking-wider text-amber-700">Setor destaque</span>
                         <Building2 className="w-5 h-5 text-amber-600" />
                       </div>
-                      <p className="text-lg font-black text-slate-900 font-[Space_Grotesk] truncate">{adminEngagementReport.topSector?.sector || 'Sem setor'}</p>
+                      <p className="text-lg font-black text-slate-900 font-[Space_Grotesk] safe-text">{adminEngagementReport.topSector?.sector || 'Sem setor'}</p>
                       <p className="text-[11px] text-amber-700 font-bold mt-2">{adminEngagementReport.topSector?.averageEngagement || 0}% de engajamento médio</p>
                     </div>
 
@@ -2322,7 +2322,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                         <span className="text-[10px] font-black uppercase tracking-wider text-purple-700">Destaque individual</span>
                         <Crown className="w-5 h-5 text-purple-600" />
                       </div>
-                      <p className="text-lg font-black text-slate-900 font-[Space_Grotesk] truncate">{adminEngagementReport.topCollaborator?.name || 'Sem dados'}</p>
+                      <p className="text-lg font-black text-slate-900 font-[Space_Grotesk] safe-text">{adminEngagementReport.topCollaborator?.name || 'Sem dados'}</p>
                       <p className="text-[11px] text-purple-700 font-bold mt-2">{adminEngagementReport.topCollaborator?.engagement.aproveitamento || 0}% • {adminEngagementReport.topCollaborator?.engagement.totalQuizCoins || 0} pontos</p>
                     </div>
                   </div>
@@ -2340,7 +2340,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                         {adminEngagementReport.metaReports.map((item) => (
                           <div key={item.meta.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
                             <div className="flex-1 min-w-0">
-                              <p className="font-black text-slate-800 text-sm truncate">{item.meta.title} — {item.meta.desc}</p>
+                              <p className="font-black text-slate-800 text-sm safe-text">{item.meta.title} — {item.meta.desc}</p>
                               <p className="text-[11px] text-slate-500 font-medium mt-0.5">{item.participants} participantes • {item.completed} concluíram • {item.totalCoins} pontos</p>
                             </div>
                             <div className="sm:w-40">
@@ -2368,7 +2368,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       </div>
                       <div className="bg-white rounded-2xl p-3 border border-slate-100">
                         <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Setor para reforçar</p>
-                        <p className="font-black text-slate-800 text-sm mt-1 truncate">{adminEngagementReport.lowSector?.sector || 'Sem dados'}</p>
+                        <p className="font-black text-slate-800 text-sm mt-1 safe-text">{adminEngagementReport.lowSector?.sector || 'Sem dados'}</p>
                         <p className="text-[11px] text-amber-700 font-bold mt-1">{adminEngagementReport.lowSector?.averageEngagement || 0}% de engajamento médio</p>
                       </div>
                       <div className="bg-white rounded-2xl p-3 border border-slate-100">
@@ -2766,8 +2766,8 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                             {meta.icon}
                           </div>
                           <div className="min-w-0">
-                            <h4 className="font-bold text-slate-800 text-sm font-[Space_Grotesk] truncate">{meta.title}</h4>
-                            <p className="text-[11px] text-slate-500 truncate">{meta.desc}</p>
+                            <h4 className="font-bold text-slate-800 text-sm font-[Space_Grotesk] safe-text">{meta.title}</h4>
+                            <p className="text-[11px] text-slate-500 safe-text">{meta.desc}</p>
                           </div>
                         </div>
 
@@ -2972,8 +2972,8 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                                 <StickerImage id={editingStickerId || 1} name="Pré-visualização" customImage={newStickerImage} className="w-full h-full object-contain m-0" />
                               </div>
                               <div className="min-w-0 flex-1">
-                                <span className="block text-[11px] text-purple-950 font-bold max-w-full truncate">Visualização ativa:</span>
-                                <span className="block text-[9.5px] text-slate-500 truncate max-w-full font-mono">{newStickerImage.startsWith('data:') ? '✓ Imagem carregada do PC' : newStickerImage}</span>
+                                <span className="block text-[11px] text-purple-950 font-bold max-w-full safe-text">Visualização ativa:</span>
+                                <span className="block text-[9.5px] text-slate-500 safe-text max-w-full font-mono">{newStickerImage.startsWith('data:') ? '✓ Imagem carregada do PC' : newStickerImage}</span>
                                 <button 
                                   type="button" 
                                   onClick={() => setNewStickerImage('')} 
@@ -3089,11 +3089,11 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                                 <tr key={st.id} className="hover:bg-slate-50/50 transition-colors">
                                   <td className="py-3 px-4 font-mono font-bold text-slate-400 text-[11px]">#{st.id}</td>
                                   <td className="py-3 px-4">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                       <div className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 shrink-0">
                                         <StickerImage id={st.id} name={st.name} customImage={st.image} className="w-full h-full object-contain m-0 p-0" />
                                       </div>
-                                      <span className="font-semibold text-slate-800 truncate max-w-[150px] sm:max-w-xs">{st.name}</span>
+                                      <span className="font-semibold text-slate-800 safe-text max-w-[150px] sm:max-w-xs">{st.name}</span>
                                     </div>
                                   </td>
                                   <td className="py-3 px-4">
@@ -3211,7 +3211,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                                 {u.name.charAt(0)}
                               </div>
                               <div className="min-w-0">
-                                <span className="font-bold text-slate-800 block truncate">{u.name}</span>
+                                <span className="font-bold text-slate-800 block safe-text">{u.name}</span>
                                 {u.isAdmin && (
                                   <span className="text-[9px] font-black tracking-wider uppercase text-purple-600 bg-purple-50 border border-purple-100 px-1 py-0.5 rounded leading-none mt-0.5 inline-block">
                                     ADMIN
@@ -3409,8 +3409,8 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                     {inactiveCollaborators.length > 0 ? inactiveCollaborators.map(({ user: inactiveUser, lastActivityAt }) => (
                       <div key={inactiveUser.cpf} className="p-3 rounded-xl border border-rose-100 bg-rose-50/40 flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="font-bold text-slate-800 text-sm truncate">{inactiveUser.name}</p>
-                          <p className="text-[11px] text-slate-500 truncate">{inactiveUser.sector}</p>
+                          <p className="font-bold text-slate-800 text-sm safe-text">{inactiveUser.name}</p>
+                          <p className="text-[11px] text-slate-500 safe-text">{inactiveUser.sector}</p>
                         </div>
                         <span className="text-[9px] font-black uppercase tracking-wider text-rose-700 bg-white border border-rose-100 px-2 py-1 rounded-lg whitespace-nowrap">
                           {lastActivityAt ? formatActivityTime(lastActivityAt) : 'Sem histórico'}
