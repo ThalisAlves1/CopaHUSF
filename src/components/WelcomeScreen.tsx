@@ -15,22 +15,56 @@ import {
   HeartPulse, 
   MessageSquare,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Coins,
+  Zap,
+  Target,
+  TrendingUp,
+  CalendarClock,
+  Medal,
+  Star
 } from 'lucide-react';
 import { User } from '../types';
 
-interface WelcomeScreenProps {
-  user: User;
-  onNavigate: (tab: 'desafios' | 'album' | 'loja' | 'trocas' | 'ranking' | 'perfil' | 'admin') => void;
+export interface WelcomeSummary {
+  rankPosition: number | null;
+  totalRanked: number;
+  nextRankedName?: string;
+  pointsToNextRank?: number;
+  engagementPercent: number;
+  totalQuizCoins: number;
+  maxQuizCoins: number;
+  completedMetas: number;
+  participatedMetas: number;
+  stickersCollected: number;
+  stickersTotal: number;
+  lastActivityTitle?: string;
+  lastActivityTime?: string;
+  nextMetaId?: number;
+  nextMetaTitle?: string;
+  nextMetaCoins?: number;
+  hasReleasedPendingMeta?: boolean;
 }
 
-export function WelcomeScreen({ user, onNavigate }: WelcomeScreenProps) {
+interface WelcomeScreenProps {
+  user: User;
+  onNavigate: (tab: 'inicio' | 'desafios' | 'album' | 'loja' | 'trocas' | 'ranking' | 'perfil' | 'admin' | 'estudo') => void;
+  summary?: WelcomeSummary;
+}
+
+export function WelcomeScreen({ user, onNavigate, summary }: WelcomeScreenProps) {
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 12) return 'Bom dia';
     if (hour >= 12 && hour < 18) return 'Boa tarde';
     return 'Boa noite';
   };
+
+  const engagementPercent = summary?.engagementPercent ?? 0;
+  const quizProgressLabel = `${summary?.totalQuizCoins ?? 0}/${summary?.maxQuizCoins ?? 900}`;
+  const albumPercent = summary?.stickersTotal ? Math.round(((summary.stickersCollected || 0) / summary.stickersTotal) * 100) : 0;
+  const rankLabel = summary?.rankPosition ? `${summary.rankPosition}º` : user.isAdmin ? 'Admin' : '--';
+  const isChampion = summary?.rankPosition === 1;
 
   const baseItems = [
     {
@@ -80,7 +114,7 @@ export function WelcomeScreen({ user, onNavigate }: WelcomeScreenProps) {
   const adminItem = {
     id: 'admin' as const,
     title: 'Painel Gestão e Controle',
-    desc: 'Acesso exclusivo para Monitoramento da Qualidade HUSF, auditorias, dar moedas e gerenciar as 6 metas.',
+    desc: 'Acesso exclusivo para monitoramento, auditorias, recompensas e gerenciamento das 6 metas.',
     icon: <ShieldCheck className="w-6 h-6 text-purple-600" />,
     color: 'border-purple-200 hover:border-purple-400 bg-purple-50/30 text-purple-950 border-2 shadow-purple-50/30 font-bold'
   };
@@ -108,7 +142,7 @@ export function WelcomeScreen({ user, onNavigate }: WelcomeScreenProps) {
     },
     {
       title: 'Mural de Boas Práticas',
-      desc: 'Canal de comunicação direta do setor de Qualidade HUSF com notícias essenciais.',
+      desc: 'Canal de comunicação direta do setor de Qualidade com notícias essenciais.',
       icon: <MessageSquare className="w-5 h-5 text-slate-400" />,
       status: 'Em breve'
     }
@@ -116,49 +150,173 @@ export function WelcomeScreen({ user, onNavigate }: WelcomeScreenProps) {
 
   return (
     <div className="space-y-8">
-      {/* Dynamic Welcome Hero Panel */}
+      {/* Strong collaborator dashboard */}
       <motion.div 
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-r from-brand-600 via-brand-700 to-indigo-800 rounded-3xl p-6 sm:p-10 text-white shadow-xl relative overflow-hidden"
+        className="bg-gradient-to-br from-[#071f1a] via-brand-700 to-[#061437] rounded-3xl p-5 sm:p-8 lg:p-10 text-white shadow-xl relative overflow-hidden"
       >
-        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-80 h-80 rounded-full bg-brand-500 blur-3xl opacity-40 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-indigo-500 blur-3xl opacity-30 pointer-events-none" />
+        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 rounded-full bg-emerald-400 blur-3xl opacity-20 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 -ml-24 -mb-24 w-96 h-96 rounded-full bg-indigo-500 blur-3xl opacity-25 pointer-events-none" />
+        <div className="absolute inset-x-0 bottom-0 h-24 opacity-20 pointer-events-none bg-[linear-gradient(90deg,rgba(255,255,255,.24)_1px,transparent_1px),linear-gradient(rgba(255,255,255,.18)_1px,transparent_1px)] bg-[size:44px_44px]" />
 
-        <div className="relative z-10 space-y-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="bg-white/15 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase flex items-center gap-1.5 border border-white/10 shadow-sm">
-              <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-              Portal do Colaborador
-            </span>
-            <span className="bg-emerald-500/20 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase flex items-center gap-1.5 border border-emerald-400/20 text-emerald-300">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Sessão Ativa e Segura
-            </span>
-          </div>
+        <div className="relative z-10 grid xl:grid-cols-[1.35fr_.85fr] gap-6 lg:gap-8 items-stretch">
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="bg-white/12 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase flex items-center gap-1.5 border border-white/10 shadow-sm">
+                <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                Copa da Segurança
+              </span>
+              <span className="bg-emerald-500/20 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase flex items-center gap-1.5 border border-emerald-400/20 text-emerald-200">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Sessão ativa
+              </span>
+            </div>
 
-          <div className="space-y-3">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold font-[Space_Grotesk] leading-tight tracking-tight">
-              {getGreeting()}, <span className="text-amber-300">{user.name}</span>!
-            </h1>
-            
-            <p className="text-brand-50 text-base sm:text-lg max-w-2xl leading-relaxed font-normal">
-              Bem-vindo(a) de volta! Juntos, garantimos as melhores práticas assistenciais de proteção ao paciente do HUSF.
-            </p>
-          </div>
+            <div className="space-y-3">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold font-[Space_Grotesk] leading-tight tracking-tight">
+                {getGreeting()}, <span className="text-amber-300">{user.name}</span>!
+              </h1>
+              <p className="text-brand-50/95 text-base sm:text-lg max-w-2xl leading-relaxed font-normal">
+                Sua evolução na Copa aparece aqui em tempo real: ranking, engajamento, metas, moedas e figurinhas.
+              </p>
+            </div>
 
-          <div className="pt-4 border-t border-white/10 flex flex-wrap gap-4 items-center justify-between">
-            <div className="flex items-center gap-2.5 bg-black/15 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/5">
-              <Building2 className="w-5 h-5 text-brand-300 shrink-0" />
-              <div>
-                <p className="text-[10px] text-white/60 font-semibold uppercase tracking-wider leading-none mb-1">Setor Alocado</p>
-                <p className="text-sm font-bold text-white tracking-wide">{user.sector}</p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="bg-white/10 border border-white/10 backdrop-blur-md rounded-2xl p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <span className="text-xs text-white/65 font-bold uppercase tracking-wider">Ranking</span>
+                  <Medal className="w-5 h-5 text-amber-300" />
+                </div>
+                <p className="text-3xl font-black font-[Space_Grotesk]">{rankLabel}</p>
+                <p className="text-xs text-white/60 mt-1">
+                  {summary?.totalRanked ? `de ${summary.totalRanked} colaboradores` : 'classificação geral'}
+                </p>
+              </div>
+
+              <div className="bg-white/10 border border-white/10 backdrop-blur-md rounded-2xl p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <span className="text-xs text-white/65 font-bold uppercase tracking-wider">Engajamento</span>
+                  <Zap className="w-5 h-5 text-emerald-300" />
+                </div>
+                <p className="text-3xl font-black font-[Space_Grotesk]">{engagementPercent}%</p>
+                <div className="mt-2 h-2 bg-white/15 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-300 rounded-full" style={{ width: `${Math.min(100, Math.max(0, engagementPercent))}%` }} />
+                </div>
+              </div>
+
+              <div className="bg-white/10 border border-white/10 backdrop-blur-md rounded-2xl p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <span className="text-xs text-white/65 font-bold uppercase tracking-wider">Pontos quiz</span>
+                  <Target className="w-5 h-5 text-sky-300" />
+                </div>
+                <p className="text-3xl font-black font-[Space_Grotesk]">{summary?.totalQuizCoins ?? 0}</p>
+                <p className="text-xs text-white/60 mt-1">{quizProgressLabel} pontos possíveis</p>
+              </div>
+
+              <div className="bg-white/10 border border-white/10 backdrop-blur-md rounded-2xl p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <span className="text-xs text-white/65 font-bold uppercase tracking-wider">Moedas</span>
+                  <Coins className="w-5 h-5 text-amber-300" />
+                </div>
+                <p className="text-3xl font-black font-[Space_Grotesk]">{user.coins}</p>
+                <p className="text-xs text-white/60 mt-1">disponíveis na carteira</p>
               </div>
             </div>
 
-            <div className="text-xs text-white/70 italic flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              Abaixo estão os canais principais para navegação imediata.
+            <div className="grid sm:grid-cols-3 gap-3">
+              <button
+                onClick={() => onNavigate('desafios')}
+                className="bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-2xl p-4 font-black flex items-center justify-between gap-3 transition-all shadow-lg shadow-amber-950/10 active:scale-[0.98]"
+              >
+                <span>{summary?.hasReleasedPendingMeta ? 'Continuar desafio' : 'Ver desafios'}</span>
+                <ArrowRight className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => onNavigate('ranking')}
+                className="bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-2xl p-4 font-bold flex items-center justify-between gap-3 transition-all active:scale-[0.98]"
+              >
+                <span>Ver ranking</span>
+                <Crown className="w-5 h-5 text-amber-300" />
+              </button>
+              <button
+                onClick={() => onNavigate('album')}
+                className="bg-white/10 hover:bg-white/15 border border-white/10 text-white rounded-2xl p-4 font-bold flex items-center justify-between gap-3 transition-all active:scale-[0.98]"
+              >
+                <span>Meu álbum</span>
+                <LayoutGrid className="w-5 h-5 text-sky-200" />
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white text-slate-900 rounded-3xl p-5 sm:p-6 shadow-2xl border border-white/40 flex flex-col justify-between gap-5">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-slate-400">Próxima jogada</p>
+                  <h2 className="text-xl font-black text-slate-900 font-[Space_Grotesk] mt-0.5">
+                    {summary?.nextMetaTitle || 'Acompanhe sua evolução'}
+                  </h2>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-brand-50 text-brand-700 flex items-center justify-center border border-brand-100 shrink-0">
+                  <Trophy className="w-6 h-6" />
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 space-y-3">
+                {isChampion ? (
+                  <div className="flex gap-3 items-start">
+                    <Star className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-black text-slate-900">Você está liderando o ranking!</p>
+                      <p className="text-sm text-slate-500 mt-0.5">Continue participando para manter a liderança da Copa.</p>
+                    </div>
+                  </div>
+                ) : summary?.nextRankedName ? (
+                  <div className="flex gap-3 items-start">
+                    <TrendingUp className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-black text-slate-900">Faltam {summary.pointsToNextRank || 1} pontos para subir.</p>
+                      <p className="text-sm text-slate-500 mt-0.5">Próximo alvo: {summary.nextRankedName}.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-3 items-start">
+                    <TrendingUp className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-black text-slate-900">Complete quizzes para entrar na disputa.</p>
+                      <p className="text-sm text-slate-500 mt-0.5">Cada meta concluída melhora sua posição.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Metas</p>
+                  <p className="text-2xl font-black text-slate-900 mt-1">{summary?.completedMetas ?? 0}/6</p>
+                  <p className="text-xs text-slate-500 mt-1">concluídas</p>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Álbum</p>
+                  <p className="text-2xl font-black text-slate-900 mt-1">{albumPercent}%</p>
+                  <p className="text-xs text-slate-500 mt-1">{summary?.stickersCollected ?? 0}/{summary?.stickersTotal ?? 0} figurinhas</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 space-y-3">
+              <div className="flex items-start gap-3 text-sm">
+                <CalendarClock className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="font-black text-slate-800 truncate">{summary?.lastActivityTitle || 'Nenhuma atividade registrada ainda'}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{summary?.lastActivityTime || 'Responda um quiz para começar seu histórico.'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5 bg-brand-50 px-3 py-2.5 rounded-2xl border border-brand-100">
+                <Building2 className="w-4 h-4 text-brand-600 shrink-0" />
+                <p className="text-xs font-bold text-brand-900 truncate">Setor: {user.sector}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -166,12 +324,12 @@ export function WelcomeScreen({ user, onNavigate }: WelcomeScreenProps) {
 
       {/* Core Quick Navigation Grid */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <h2 className="text-2xl font-bold text-slate-800 tracking-tight font-[Space_Grotesk]">
             Seções do Aplicativo
           </h2>
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
-            Acesso Rápido
+            Acesso rápido
           </span>
         </div>
 
@@ -230,7 +388,7 @@ export function WelcomeScreen({ user, onNavigate }: WelcomeScreenProps) {
                 {item.icon}
               </div>
               <div className="space-y-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-bold text-slate-700 text-sm font-[Space_Grotesk]">
                     {item.title}
                   </h3>

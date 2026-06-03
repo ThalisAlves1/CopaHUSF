@@ -818,6 +818,58 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   }, [filteredStickers, searchQuery]);
   const currentUserActivity = useMemo(() => getActivityLog(user).slice(0, 10), [user]);
 
+  const collaboratorHomeSummary = useMemo(() => {
+    const normalizedUsers = usersList.some(u => u.cpf === user.cpf)
+      ? usersList.map(u => (u.cpf === user.cpf ? user : u))
+      : [...usersList, user];
+
+    const rankedUsers = normalizedUsers
+      .filter(u => !u.isAdmin)
+      .map(u => ({
+        ...u,
+        engagement: calculateUserEngagement(u)
+      }))
+      .sort((a, b) => {
+        if (b.engagement.aproveitamento !== a.engagement.aproveitamento) {
+          return b.engagement.aproveitamento - a.engagement.aproveitamento;
+        }
+        if (b.engagement.totalQuizCoins !== a.engagement.totalQuizCoins) {
+          return b.engagement.totalQuizCoins - a.engagement.totalQuizCoins;
+        }
+        return a.name.localeCompare(b.name);
+      });
+
+    const currentEngagement = calculateUserEngagement(user);
+    const rankIndex = user.isAdmin ? -1 : rankedUsers.findIndex(u => u.cpf === user.cpf);
+    const nextRanked = rankIndex > 0 ? rankedUsers[rankIndex - 1] : undefined;
+    const nextIncompleteReleasedMeta = METAS.find(meta =>
+      releasedMetas.includes(meta.id) && ((user.progress?.[meta.id]?.totalCoinsEarned || 0) < 150)
+    );
+    const nextIncompleteAnyMeta = METAS.find(meta => (user.progress?.[meta.id]?.totalCoinsEarned || 0) < 150);
+    const nextMeta = nextIncompleteReleasedMeta || nextIncompleteAnyMeta;
+    const lastActivity = currentUserActivity[0];
+
+    return {
+      rankPosition: rankIndex >= 0 ? rankIndex + 1 : null,
+      totalRanked: rankedUsers.length,
+      nextRankedName: nextRanked?.name,
+      pointsToNextRank: nextRanked ? Math.max(1, nextRanked.engagement.totalQuizCoins - currentEngagement.totalQuizCoins + 1) : 0,
+      engagementPercent: currentEngagement.aproveitamento,
+      totalQuizCoins: currentEngagement.totalQuizCoins,
+      maxQuizCoins: currentEngagement.maxQuizCoins,
+      completedMetas: currentEngagement.metasConcluidas,
+      participatedMetas: currentEngagement.metasParticipadas,
+      stickersCollected: user.stickers?.length || 0,
+      stickersTotal: allStickersCatalog.length,
+      lastActivityTitle: lastActivity?.title,
+      lastActivityTime: lastActivity ? formatActivityTime(lastActivity.createdAt) : undefined,
+      nextMetaId: nextMeta?.id,
+      nextMetaTitle: nextMeta ? `${nextMeta.title}: ${nextMeta.desc}` : undefined,
+      nextMetaCoins: nextMeta ? (user.progress?.[nextMeta.id]?.totalCoinsEarned || 0) : undefined,
+      hasReleasedPendingMeta: !!nextIncompleteReleasedMeta
+    };
+  }, [usersList, user, allStickersCatalog.length, releasedMetas, currentUserActivity]);
+
   const adminActivityLog = useMemo(() => {
     const normalizedUsers = usersList.some(u => u.cpf === user.cpf)
       ? usersList.map(u => (u.cpf === user.cpf ? user : u))
@@ -844,6 +896,90 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       }))
       .filter(item => !item.lastActivityAt || new Date(item.lastActivityAt).getTime() < sevenDaysAgo)
       .slice(0, 8);
+  }, [usersList]);
+
+  const adminEngagementReport = useMemo(() => {
+    const collaborators = usersList.filter(u => !u.isAdmin);
+    const totalCollaborators = collaborators.length;
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+    const collaboratorStats = collaborators.map((collaborator) => {
+      const engagement = calculateUserEngagement(collaborator);
+      const lastActivityAt = getActivityLog(collaborator)[0]?.createdAt || null;
+      const isActiveThisWeek = !!lastActivityAt && new Date(lastActivityAt).getTime() >= sevenDaysAgo;
+      return { collaborator, engagement, lastActivityAt, isActiveThisWeek };
+    });
+
+    const totalQuizCoins = collaboratorStats.reduce((sum, item) => sum + item.engagement.totalQuizCoins, 0);
+    const totalPossibleCoins = totalCollaborators * METAS.length * 150;
+    const averageEngagement = totalPossibleCoins > 0
+      ? Math.round((totalQuizCoins / totalPossibleCoins) * 1000) / 10
+      : 0;
+    const activeThisWeek = collaboratorStats.filter(item => item.isActiveThisWeek).length;
+    const activeRate = totalCollaborators > 0
+      ? Math.round((activeThisWeek / totalCollaborators) * 1000) / 10
+      : 0;
+
+    const sectorMap: Record<string, { members: number; totalQuizCoins: number; totalEngagement: number; activeThisWeek: number }> = {};
+    collaboratorStats.forEach(({ collaborator, engagement, isActiveThisWeek }) => {
+      if (!sectorMap[collaborator.sector]) {
+        sectorMap[collaborator.sector] = { members: 0, totalQuizCoins: 0, totalEngagement: 0, activeThisWeek: 0 };
+      }
+      sectorMap[collaborator.sector].members += 1;
+      sectorMap[collaborator.sector].totalQuizCoins += engagement.totalQuizCoins;
+      sectorMap[collaborator.sector].totalEngagement += engagement.aproveitamento;
+      if (isActiveThisWeek) sectorMap[collaborator.sector].activeThisWeek += 1;
+    });
+
+    const sectorReports = Object.entries(sectorMap)
+      .map(([sector, data]) => ({
+        sector,
+        ...data,
+        averageEngagement: data.members > 0 ? Math.round((data.totalEngagement / data.members) * 10) / 10 : 0,
+        activeRate: data.members > 0 ? Math.round((data.activeThisWeek / data.members) * 1000) / 10 : 0
+      }))
+      .sort((a, b) => b.averageEngagement - a.averageEngagement || b.totalQuizCoins - a.totalQuizCoins);
+
+    const metaReports = METAS.map((meta) => {
+      const participants = collaborators.filter(c => (c.progress?.[meta.id]?.totalCoinsEarned || 0) > 0).length;
+      const completed = collaborators.filter(c => (c.progress?.[meta.id]?.totalCoinsEarned || 0) >= 150).length;
+      const totalCoins = collaborators.reduce((sum, c) => sum + (c.progress?.[meta.id]?.totalCoinsEarned || 0), 0);
+      const maxCoins = totalCollaborators * 150;
+      return {
+        meta,
+        participants,
+        completed,
+        totalCoins,
+        participationRate: totalCollaborators > 0 ? Math.round((participants / totalCollaborators) * 1000) / 10 : 0,
+        completionRate: totalCollaborators > 0 ? Math.round((completed / totalCollaborators) * 1000) / 10 : 0,
+        engagementRate: maxCoins > 0 ? Math.round((totalCoins / maxCoins) * 1000) / 10 : 0
+      };
+    });
+
+    const sortedMetasByEngagement = [...metaReports].sort((a, b) => b.engagementRate - a.engagementRate || b.participants - a.participants);
+    const individualRanking = computeIndividualRanking();
+    const riskCollaborators = collaboratorStats
+      .filter(item => item.engagement.aproveitamento < 50 || !item.isActiveThisWeek)
+      .sort((a, b) => a.engagement.aproveitamento - b.engagement.aproveitamento)
+      .slice(0, 6);
+
+    return {
+      totalCollaborators,
+      totalQuizCoins,
+      totalPossibleCoins,
+      averageEngagement,
+      activeThisWeek,
+      activeRate,
+      inactiveCount: collaboratorStats.filter(item => !item.isActiveThisWeek).length,
+      topSector: sectorReports[0],
+      lowSector: sectorReports.length > 1 ? sectorReports[sectorReports.length - 1] : undefined,
+      topCollaborator: individualRanking[0],
+      sectorReports,
+      metaReports,
+      bestMeta: sortedMetasByEngagement[0],
+      attentionMeta: sortedMetasByEngagement[sortedMetasByEngagement.length - 1],
+      riskCollaborators
+    };
   }, [usersList]);
 
 
@@ -996,7 +1132,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
             >
-              <WelcomeScreen user={user} onNavigate={handleTabChange} />
+              <WelcomeScreen user={user} onNavigate={handleTabChange} summary={collaboratorHomeSummary} />
             </motion.div>
           )}
 
@@ -1822,6 +1958,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
               </div>
 
               {adminSection === 'overview' && (
+                <div className="space-y-6">
                 <div className="grid lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2 bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 text-white rounded-3xl p-6 sm:p-7 shadow-lg border border-amber-300/20 relative overflow-hidden">
                     <div className="absolute -right-16 -top-16 w-56 h-56 bg-amber-400/20 rounded-full blur-3xl" />
@@ -1884,6 +2021,120 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       </div>
                     </div>
                   </div>
+                </div>
+
+                <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5 pb-5 border-b border-slate-100">
+                    <div>
+                      <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-3 py-1 mb-2">
+                        <Zap className="w-3.5 h-3.5" /> Relatório de engajamento
+                      </span>
+                      <h3 className="font-black text-slate-900 text-xl sm:text-2xl font-[Space_Grotesk]">Saúde da campanha</h3>
+                      <p className="text-xs sm:text-sm text-slate-500 mt-1 leading-relaxed">
+                        Veja rapidamente quem está participando, quais metas performam melhor e onde o admin precisa agir.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAdminSection('monitoramento')}
+                      className="bg-slate-900 hover:bg-slate-800 text-white rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-wide shadow-sm transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      Abrir monitoramento <ArrowLeft className="w-4 h-4 rotate-180" />
+                    </button>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+                    <div className="rounded-2xl p-4 border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Engajamento médio</span>
+                        <Trophy className="w-5 h-5 text-emerald-600" />
+                      </div>
+                      <p className="text-3xl font-black text-slate-900 font-[Space_Grotesk]">{adminEngagementReport.averageEngagement}%</p>
+                      <div className="h-2 bg-emerald-100 rounded-full mt-3 overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, adminEngagementReport.averageEngagement)}%` }} />
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl p-4 border border-blue-100 bg-gradient-to-br from-blue-50 to-white">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-blue-700">Ativos na semana</span>
+                        <UserCheck className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <p className="text-3xl font-black text-slate-900 font-[Space_Grotesk]">{adminEngagementReport.activeThisWeek}/{adminEngagementReport.totalCollaborators}</p>
+                      <p className="text-[11px] text-blue-700 font-bold mt-2">{adminEngagementReport.activeRate}% da base movimentou o app</p>
+                    </div>
+
+                    <div className="rounded-2xl p-4 border border-amber-100 bg-gradient-to-br from-amber-50 to-white">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-700">Setor destaque</span>
+                        <Building2 className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <p className="text-lg font-black text-slate-900 font-[Space_Grotesk] truncate">{adminEngagementReport.topSector?.sector || 'Sem setor'}</p>
+                      <p className="text-[11px] text-amber-700 font-bold mt-2">{adminEngagementReport.topSector?.averageEngagement || 0}% de engajamento médio</p>
+                    </div>
+
+                    <div className="rounded-2xl p-4 border border-purple-100 bg-gradient-to-br from-purple-50 to-white">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-purple-700">Destaque individual</span>
+                        <Crown className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <p className="text-lg font-black text-slate-900 font-[Space_Grotesk] truncate">{adminEngagementReport.topCollaborator?.name || 'Sem dados'}</p>
+                      <p className="text-[11px] text-purple-700 font-bold mt-2">{adminEngagementReport.topCollaborator?.engagement.aproveitamento || 0}% • {adminEngagementReport.topCollaborator?.engagement.totalQuizCoins || 0} pontos</p>
+                    </div>
+                  </div>
+
+                  <div className="grid lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 rounded-2xl border border-slate-100 overflow-hidden">
+                      <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
+                        <div>
+                          <h4 className="font-black text-slate-800 text-sm font-[Space_Grotesk]">Participação por meta</h4>
+                          <p className="text-[11px] text-slate-500 font-medium">Mostra quais temas precisam de reforço.</p>
+                        </div>
+                        <span className="text-[10px] font-black uppercase text-slate-400">6 metas</span>
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        {adminEngagementReport.metaReports.map((item) => (
+                          <div key={item.meta.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-black text-slate-800 text-sm truncate">{item.meta.title} — {item.meta.desc}</p>
+                              <p className="text-[11px] text-slate-500 font-medium mt-0.5">{item.participants} participantes • {item.completed} concluíram • {item.totalCoins} pontos</p>
+                            </div>
+                            <div className="sm:w-40">
+                              <div className="flex justify-between text-[10px] font-black text-slate-500 mb-1">
+                                <span>Engajamento</span>
+                                <span>{item.engagementRate}%</span>
+                              </div>
+                              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-brand-500 rounded-full" style={{ width: `${Math.min(100, item.engagementRate)}%` }} />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-100 p-4 bg-slate-50/60 space-y-3">
+                      <h4 className="font-black text-slate-800 text-sm font-[Space_Grotesk] flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-rose-500" /> Pontos de atenção
+                      </h4>
+                      <div className="bg-white rounded-2xl p-3 border border-slate-100">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Meta com menor adesão</p>
+                        <p className="font-black text-slate-800 text-sm mt-1">{adminEngagementReport.attentionMeta ? `${adminEngagementReport.attentionMeta.meta.title}: ${adminEngagementReport.attentionMeta.meta.desc}` : 'Sem dados'}</p>
+                        <p className="text-[11px] text-rose-600 font-bold mt-1">{adminEngagementReport.attentionMeta?.engagementRate || 0}% de engajamento</p>
+                      </div>
+                      <div className="bg-white rounded-2xl p-3 border border-slate-100">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Setor para reforçar</p>
+                        <p className="font-black text-slate-800 text-sm mt-1 truncate">{adminEngagementReport.lowSector?.sector || 'Sem dados'}</p>
+                        <p className="text-[11px] text-amber-700 font-bold mt-1">{adminEngagementReport.lowSector?.averageEngagement || 0}% de engajamento médio</p>
+                      </div>
+                      <div className="bg-white rounded-2xl p-3 border border-slate-100">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Colaboradores em alerta</p>
+                        <p className="font-black text-slate-800 text-sm mt-1">{adminEngagementReport.riskCollaborators.length}</p>
+                        <p className="text-[11px] text-slate-500 font-medium mt-1">Com baixo engajamento ou sem atividade recente.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 </div>
               )}
 
