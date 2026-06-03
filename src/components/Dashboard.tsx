@@ -11,6 +11,7 @@ import { getStoredUsers, saveStoredUsers, formatCPF } from '../lib/auth';
 import { StickerDefinition, getStickerById, getAllStickers, getStoredStickers, saveStoredStickers } from '../lib/store';
 import { dbGetUsers, dbGetStickers, dbSaveSingleUser, dbDeleteUser, dbInsertSticker, dbUpdateSticker, dbDeleteSticker, dbSaveWholeCatalog, dbGetReleasedMetas, dbSaveReleasedMetas, subscribeToUsers, subscribeToStickers, subscribeToSettings, DB_DEFAULT_STICKERS, isSupabaseConfigured, lastSupabaseError } from '../lib/supabase';
 import { StickerImage } from './StickerImage';
+import { appendActivityLog, createActivityEntry, formatActivityTime, getActivityBadgeClass, getActivityLog, getActivityTypeLabel } from '../lib/activity';
 
 
 
@@ -44,6 +45,7 @@ function sameUserData(a?: User | null, b?: User | null) {
     coins: a.coins,
     stickers: a.stickers || [],
     progress: a.progress || {},
+    activityLog: getActivityLog(a),
     isAdmin: !!a.isAdmin
   }) === JSON.stringify({
     cpf: b.cpf,
@@ -52,6 +54,7 @@ function sameUserData(a?: User | null, b?: User | null) {
     coins: b.coins,
     stickers: b.stickers || [],
     progress: b.progress || {},
+    activityLog: getActivityLog(b),
     isAdmin: !!b.isAdmin
   });
 }
@@ -273,7 +276,16 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     const updated = currentUsers.map(u => {
       if (u.cpf === targetCpf) {
         const stickers = u.stickers || [];
-        updatedTargetUser = { ...u, stickers: [...stickers, stickerId] };
+        const nextUser = { ...u, stickers: [...stickers, stickerId] };
+        updatedTargetUser = appendActivityLog(nextUser, createActivityEntry({
+          type: 'sticker',
+          title: 'Figurinha recebida do admin',
+          description: `Recebeu a figurinha ${stickerName} pelo painel administrativo.`,
+          stickerIds: [stickerId],
+          coinsBefore: u.coins || 0,
+          coinsAfter: u.coins || 0,
+          actor: user.name
+        }));
         return updatedTargetUser;
       }
       return u;
@@ -574,14 +586,22 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       return;
     }
 
-    const newUser: User = {
+    const newUser: User = appendActivityLog({
       cpf: formattedCpf,
       name,
       sector,
       coins: 30,
       stickers: [],
       progress: {}
-    };
+    }, createActivityEntry({
+      type: 'system',
+      title: 'Perfil criado',
+      description: `Colaborador cadastrado no setor ${sector} com saldo inicial de 30 moedas.`,
+      points: 30,
+      coinsBefore: 0,
+      coinsAfter: 30,
+      actor: user.name
+    }));
 
     const updated = [...currentUsers, newUser];
     await dbSaveSingleUser(newUser);
@@ -670,14 +690,22 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       }
 
       addedCpfInBatch.add(formattedCpf);
-      newAddedUsers.push({
+      newAddedUsers.push(appendActivityLog({
         cpf: formattedCpf,
         name,
         sector,
         coins: 30,
         stickers: [],
         progress: {}
-      });
+      }, createActivityEntry({
+        type: 'system',
+        title: 'Perfil criado em lote',
+        description: `Colaborador importado para o setor ${sector} com saldo inicial de 30 moedas.`,
+        points: 30,
+        coinsBefore: 0,
+        coinsAfter: 30,
+        actor: user.name
+      })));
       successCount++;
     });
 
@@ -704,7 +732,17 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     let updatedTargetUser: User | null = null;
     const updated = currentUsers.map(u => {
       if (u.cpf === targetCpf) {
-        updatedTargetUser = { ...u, coins: (u.coins || 0) + amount };
+        const coinsBefore = u.coins || 0;
+        const coinsAfter = coinsBefore + amount;
+        updatedTargetUser = appendActivityLog({ ...u, coins: coinsAfter }, createActivityEntry({
+          type: 'reward',
+          title: `Recompensa administrativa +${amount} moedas`,
+          description: `${user.name} creditou +${amount} moedas pelo painel administrativo.`,
+          points: amount,
+          coinsBefore,
+          coinsAfter,
+          actor: user.name
+        }));
         return updatedTargetUser;
       }
       return u;
@@ -778,6 +816,36 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     
     return groups;
   }, [filteredStickers, searchQuery]);
+  const currentUserActivity = useMemo(() => getActivityLog(user).slice(0, 10), [user]);
+
+  const adminActivityLog = useMemo(() => {
+    const normalizedUsers = usersList.some(u => u.cpf === user.cpf)
+      ? usersList.map(u => (u.cpf === user.cpf ? user : u))
+      : [...usersList, user];
+
+    return normalizedUsers
+      .flatMap((u) => getActivityLog(u).map((entry) => ({ entry, user: u })))
+      .sort((a, b) => new Date(b.entry.createdAt).getTime() - new Date(a.entry.createdAt).getTime())
+      .slice(0, 30);
+  }, [usersList, user]);
+
+  const activitiesThisWeek = useMemo(() => {
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return adminActivityLog.filter(item => new Date(item.entry.createdAt).getTime() >= sevenDaysAgo).length;
+  }, [adminActivityLog]);
+
+  const inactiveCollaborators = useMemo(() => {
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return usersList
+      .filter(u => !u.isAdmin)
+      .map(u => ({
+        user: u,
+        lastActivityAt: getActivityLog(u)[0]?.createdAt || null
+      }))
+      .filter(item => !item.lastActivityAt || new Date(item.lastActivityAt).getTime() < sevenDaysAgo)
+      .slice(0, 8);
+  }, [usersList]);
+
 
   return (
     <div className="min-h-screen bg-slate-50/50 overflow-x-hidden">
@@ -1504,23 +1572,84 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                 <p className="text-sm text-brand-200 mt-1 mb-4 relative z-10 bg-brand-700/50 px-3 py-1 rounded-full">CPF: {user.cpf}</p>
               </div>
               
-              <div className="p-6 md:p-8 grid sm:grid-cols-2 gap-4">
-                <div className="bg-amber-50 rounded-xl p-6 border border-amber-100 flex items-center gap-4 hover:shadow-md transition-shadow">
-                  <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shrink-0 shadow-sm">
-                    <Coins className="w-7 h-7" />
+              <div className="p-6 md:p-8 space-y-6">
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div className="bg-amber-50 rounded-xl p-6 border border-amber-100 flex items-center gap-4 hover:shadow-md transition-shadow">
+                    <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shrink-0 shadow-sm">
+                      <Coins className="w-7 h-7" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-500 font-medium">Moedas Copas</p>
+                      <p className="text-3xl font-bold text-slate-800">{user.coins}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-slate-500 font-medium">Moedas Copas</p>
-                    <p className="text-3xl font-bold text-slate-800">{user.coins}</p>
+                  <div className="bg-blue-50 rounded-xl p-6 border border-blue-100 flex items-center gap-4 hover:shadow-md transition-shadow">
+                    <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shrink-0 shadow-sm">
+                      <LayoutGrid className="w-7 h-7" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-500 font-medium">Figurinhas Obtidas</p>
+                      <p className="text-3xl font-bold text-slate-800">{user.stickers.length}</p>
+                    </div>
+                  </div>
+                  <div className="bg-emerald-50 rounded-xl p-6 border border-emerald-100 flex items-center gap-4 hover:shadow-md transition-shadow">
+                    <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shrink-0 shadow-sm">
+                      <Zap className="w-7 h-7" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-500 font-medium">Engajamento</p>
+                      <p className="text-3xl font-bold text-slate-800">{calculateUserEngagement(user).aproveitamento}%</p>
+                    </div>
                   </div>
                 </div>
-                <div className="bg-blue-50 rounded-xl p-6 border border-blue-100 flex items-center gap-4 hover:shadow-md transition-shadow">
-                  <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shrink-0 shadow-sm">
-                    <LayoutGrid className="w-7 h-7" />
+
+                <div className="bg-slate-50/70 rounded-2xl border border-slate-200 overflow-hidden">
+                  <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                      <h3 className="font-black text-slate-800 font-[Space_Grotesk] flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                        Histórico de pontos e ações
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Transparência total das moedas, quizzes, compras e figurinhas.</p>
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 bg-white border border-slate-200 px-2.5 py-1 rounded-full">
+                      Últimos registros
+                    </span>
                   </div>
-                  <div>
-                    <p className="text-sm text-slate-500 font-medium">Figurinhas Obtidas</p>
-                    <p className="text-3xl font-bold text-slate-800">{user.stickers.length}</p>
+
+                  <div className="divide-y divide-slate-200 bg-white">
+                    {currentUserActivity.length > 0 ? currentUserActivity.map((entry) => (
+                      <div key={entry.id} className="p-4 flex items-start gap-3 hover:bg-slate-50 transition-colors">
+                        <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg border shrink-0 ${getActivityBadgeClass(entry.type)}`}>
+                          {getActivityTypeLabel(entry.type)}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1">
+                            <div>
+                              <p className="font-bold text-slate-800 text-sm">{entry.title}</p>
+                              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{entry.description}</p>
+                            </div>
+                            <div className="shrink-0 text-left sm:text-right">
+                              {typeof entry.points === 'number' && entry.points !== 0 && (
+                                <p className={`font-black text-sm ${entry.points > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                  {entry.points > 0 ? '+' : ''}{entry.points} moedas
+                                </p>
+                              )}
+                              <p className="text-[10px] text-slate-400 font-bold mt-0.5">{formatActivityTime(entry.createdAt)}</p>
+                            </div>
+                          </div>
+                          {typeof entry.coinsAfter === 'number' && (
+                            <p className="text-[10px] text-slate-400 font-semibold mt-2">
+                              Saldo após ação: <strong className="text-slate-600">{entry.coinsAfter}</strong> moedas
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="p-8 text-center text-slate-400 text-sm">
+                        Nenhuma atividade registrada ainda. Quando você responder quizzes, comprar pacotes ou receber recompensas, tudo aparecerá aqui.
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2697,37 +2826,106 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
 
               {adminSection === 'monitoramento' && (
                 <>
-              {/* Simulated quality audit flow log stream */}
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-                <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
-                  <h3 className="font-bold text-slate-800 text-lg font-[Space_Grotesk] flex items-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500 animate-pulse" />
-                    Fluxo de Auditorias de Segurança Ativas (HUSF)
-                  </h3>
-                  <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase">Monitoramento de Boas Práticas</span>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-xs font-black uppercase tracking-wider">Ações registradas</span>
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <p className="text-3xl font-black text-slate-800 font-[Space_Grotesk]">{adminActivityLog.length}</p>
+                  <p className="text-[11px] text-slate-500 font-semibold mt-1">Últimos eventos carregados</p>
                 </div>
-                
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 mt-1 animate-pulse shrink-0" />
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-xs font-black uppercase tracking-wider">Últimos 7 dias</span>
+                    <Zap className="w-5 h-5 text-brand-500" />
+                  </div>
+                  <p className="text-3xl font-black text-slate-800 font-[Space_Grotesk]">{activitiesThisWeek}</p>
+                  <p className="text-[11px] text-slate-500 font-semibold mt-1">Movimentações recentes</p>
+                </div>
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-xs font-black uppercase tracking-wider">Sem atividade</span>
+                    <AlertCircle className="w-5 h-5 text-rose-500" />
+                  </div>
+                  <p className="text-3xl font-black text-slate-800 font-[Space_Grotesk]">{inactiveCollaborators.length}</p>
+                  <p className="text-[11px] text-slate-500 font-semibold mt-1">Colaboradores parados há 7 dias</p>
+                </div>
+              </div>
+
+              <div className="grid lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 pb-4 border-b border-slate-100">
                     <div>
-                      <span className="font-bold text-slate-700">Auditório Geral:</span> Colaborador <span className="font-bold text-slate-800">Ana Souza</span> (UTI Adulto) respondeu corretamente à pergunta sobre higienização correta das mãos (<span className="text-emerald-600 font-semibold">Meta 5</span>).
-                      <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">Há 1 minuto atrás</span>
+                      <h3 className="font-bold text-slate-800 text-lg font-[Space_Grotesk] flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500 animate-pulse" />
+                        Histórico real de atividades
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Quizzes, recompensas, loja, figurinhas e trocas registrados por colaborador.</p>
+                    </div>
+                    <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase bg-slate-50 border border-slate-200 rounded-full px-3 py-1">
+                      Monitoramento em tempo real
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+                    {adminActivityLog.length > 0 ? adminActivityLog.map(({ entry, user: activityUser }) => (
+                      <div key={`${activityUser.cpf}-${entry.id}`} className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs hover:bg-white hover:shadow-sm transition-all">
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-lg border shrink-0 ${getActivityBadgeClass(entry.type)}`}>
+                          {getActivityTypeLabel(entry.type)}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5">
+                            <div>
+                              <p className="text-slate-700 leading-relaxed">
+                                <span className="font-black text-slate-900">{activityUser.name}</span> <span className="text-slate-400">({activityUser.sector})</span> — <span className="font-bold">{entry.title}</span>
+                              </p>
+                              <p className="text-slate-500 mt-0.5 leading-relaxed">{entry.description}</p>
+                            </div>
+                            <div className="shrink-0 sm:text-right">
+                              {typeof entry.points === 'number' && entry.points !== 0 && (
+                                <p className={`font-black ${entry.points > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                  {entry.points > 0 ? '+' : ''}{entry.points}
+                                </p>
+                              )}
+                              <span className="text-[10px] text-slate-400 block font-medium whitespace-nowrap">{formatActivityTime(entry.createdAt)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400 text-sm">
+                        Ainda não há histórico real. Assim que colaboradores responderem quizzes, comprarem pacotes ou receberem recompensas, os eventos aparecerão aqui.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 h-fit">
+                  <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-100">
+                    <AlertCircle className="w-5 h-5 text-rose-500" />
+                    <div>
+                      <h3 className="font-bold text-slate-800 text-lg font-[Space_Grotesk]">Atenção do admin</h3>
+                      <p className="text-xs text-slate-500">Quem pode precisar de incentivo.</p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs">
-                    <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 mt-1 shrink-0" />
-                    <div>
-                      <span className="font-bold text-slate-700">Álbum & Engajamento:</span> Colaborador <span className="font-bold text-slate-800">Bruno Santos</span> (Pronto Socorro) abriu um Pacote Comum e adquiriu a figurinha <span className="font-semibold text-indigo-600">#4 Checklist Cirúrgico</span>.
-                      <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">Há 4 minutos atrás</span>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 mt-1 shrink-0" />
-                    <div>
-                      <span className="font-bold text-slate-700">Auditório Geral:</span> Colaborador <span className="font-bold text-slate-800">Carolina Lima</span> (Centro Cirúrgico) conquistou nota máxima e acumulou moedas no treinamento livre da <span className="text-emerald-600 font-semibold">Meta 3 (Segurança de Medicamentos)</span>.
-                      <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">Há 12 minutos atrás</span>
-                    </div>
+
+                  <div className="space-y-2">
+                    {inactiveCollaborators.length > 0 ? inactiveCollaborators.map(({ user: inactiveUser, lastActivityAt }) => (
+                      <div key={inactiveUser.cpf} className="p-3 rounded-xl border border-rose-100 bg-rose-50/40 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-800 text-sm truncate">{inactiveUser.name}</p>
+                          <p className="text-[11px] text-slate-500 truncate">{inactiveUser.sector}</p>
+                        </div>
+                        <span className="text-[9px] font-black uppercase tracking-wider text-rose-700 bg-white border border-rose-100 px-2 py-1 rounded-lg whitespace-nowrap">
+                          {lastActivityAt ? formatActivityTime(lastActivityAt) : 'Sem histórico'}
+                        </span>
+                      </div>
+                    )) : (
+                      <div className="p-5 rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-800 text-xs font-bold leading-relaxed">
+                        Ótimo! Todos os colaboradores carregados têm atividade recente ou ainda não atingiram o limite de alerta.
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

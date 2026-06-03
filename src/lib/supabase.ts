@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { User } from '../types';
 import { StickerDefinition, StickerRarity } from './store';
+import { embedActivityLogInProgress, getActivityLog } from './activity';
 
 /*
   ========================================================================
@@ -167,8 +168,9 @@ export const normalizeCpf = (value: string | number | null | undefined): string 
 function mapSupabaseUserRow(row: any): User {
   const cleanCpf = normalizeCpf(row?.cpf);
   const isThisAdmin = cleanCpf === '13683235616' || cleanCpf === '11111111111' || !!row?.is_admin;
+  const progress = typeof row?.progress === 'object' && row.progress !== null ? row.progress : {};
 
-  return {
+  const user: User = {
     cpf: String(row?.cpf || ''),
     name: cleanCpf === '13683235616'
       ? 'Thalis Alves Ramos'
@@ -178,9 +180,12 @@ function mapSupabaseUserRow(row: any): User {
       : (row?.sector || 'Outro Setor'),
     coins: typeof row?.coins === 'number' ? row.coins : Number(row?.coins || 0),
     stickers: Array.isArray(row?.stickers) ? row.stickers : [],
-    progress: typeof row?.progress === 'object' && row.progress !== null ? row.progress : {},
+    progress,
     isAdmin: isThisAdmin
   };
+
+  user.activityLog = getActivityLog(user);
+  return user;
 }
 
 function upsertLocalUserCache(user: User) {
@@ -494,7 +499,7 @@ export async function dbSaveUsers(users: User[]): Promise<void> {
       sector: u.sector,
       coins: u.coins,
       stickers: u.stickers,
-      progress: u.progress,
+      progress: embedActivityLogInProgress(u),
       is_admin: !!u.isAdmin,
       updated_at: new Date().toISOString()
     }));
@@ -540,7 +545,7 @@ export async function dbSaveSingleUser(user: User): Promise<void> {
           sector: user.sector,
           coins: user.coins,
           stickers: user.stickers,
-          progress: user.progress,
+          progress: embedActivityLogInProgress(user),
           is_admin: !!user.isAdmin,
           updated_at: new Date().toISOString()
         }, { onConflict: 'cpf' }) as any

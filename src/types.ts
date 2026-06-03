@@ -1,3 +1,19 @@
+export type ActivityLogType = 'quiz' | 'reward' | 'purchase' | 'sticker' | 'trade' | 'system';
+
+export interface ActivityLogEntry {
+  id: string;
+  type: ActivityLogType;
+  title: string;
+  description: string;
+  points?: number;
+  metaId?: number;
+  stickerIds?: number[];
+  coinsBefore?: number;
+  coinsAfter?: number;
+  actor?: string;
+  createdAt: string;
+}
+
 export interface MetaProgress {
   metaId: number;
   lastPlayedDate: string;
@@ -16,5 +32,6 @@ export interface User {
   coins: number;
   stickers: number[];
   progress: Record<number, MetaProgress>;
+  activityLog?: ActivityLogEntry[];
   isAdmin?: boolean;
 }

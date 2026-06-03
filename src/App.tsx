@@ -3,6 +3,7 @@ import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';
 import { User, MetaProgress } from './types';
 import { openPackage } from './lib/store';
+import { appendActivityLog, createActivityEntry } from './lib/activity';
 import { getStoredUsers, saveStoredUsers, simulateLogin } from './lib/auth';
 import { RefreshCw } from 'lucide-react';
 
@@ -132,12 +133,23 @@ export default function App() {
     if (user && user.coins >= cost) {
       const stickers = openPackage(packageId);
       const newStickerIds = stickers.map(s => s.id);
-      
-      setUser({
+      const coinsAfter = user.coins - cost;
+
+      const updatedUser = appendActivityLog({
         ...user,
-        coins: user.coins - cost,
+        coins: coinsAfter,
         stickers: [...user.stickers, ...newStickerIds],
-      });
+      }, createActivityEntry({
+        type: 'purchase',
+        title: 'Pacote de figurinhas comprado',
+        description: `Comprou um pacote na loja e recebeu ${newStickerIds.length} figurinha${newStickerIds.length === 1 ? '' : 's'}: ${newStickerIds.map(id => `#${id}`).join(', ')}.`,
+        points: -cost,
+        stickerIds: newStickerIds,
+        coinsBefore: user.coins,
+        coinsAfter
+      }));
+
+      setUser(updatedUser);
       return stickers;
     }
     return [];
@@ -145,17 +157,27 @@ export default function App() {
 
   const handleQuizFinish = (metaId: number, coinsEarned: number, correctAnswers: number, newProgress: MetaProgress) => {
     if (!user) return;
-    
-    // Create new user object with updated coins and progress
-    const updatedUser: User = {
+
+    const coinsAfter = user.coins + coinsEarned;
+    const baseUpdatedUser: User = {
       ...user,
-      coins: user.coins + coinsEarned,
+      coins: coinsAfter,
       progress: {
         ...user.progress,
         [metaId]: newProgress
       }
     };
-    
+
+    const updatedUser = appendActivityLog(baseUpdatedUser, createActivityEntry({
+      type: 'quiz',
+      title: coinsEarned > 0 ? `Meta ${metaId} pontuada` : `Meta ${metaId} respondida`,
+      description: `Acertou ${correctAnswers}/5 perguntas${coinsEarned > 0 ? ` e ganhou ${coinsEarned} moedas` : ' sem receber novas moedas nesta tentativa'}.`,
+      points: coinsEarned,
+      metaId,
+      coinsBefore: user.coins,
+      coinsAfter
+    }));
+
     setUser(updatedUser);
   };
 
@@ -167,7 +189,17 @@ export default function App() {
       newStickers.splice(indexToRemove, 1);
     }
     newStickers.push(receivedStickerId);
-    setUser({ ...user, stickers: newStickers });
+
+    const updatedUser = appendActivityLog({ ...user, stickers: newStickers }, createActivityEntry({
+      type: 'trade',
+      title: 'Troca de figurinha concluída',
+      description: `Enviou a figurinha #${givenStickerId} e recebeu a figurinha #${receivedStickerId}.`,
+      stickerIds: [givenStickerId, receivedStickerId],
+      coinsBefore: user.coins,
+      coinsAfter: user.coins
+    }));
+
+    setUser(updatedUser);
   };
 
   if (loadingSession) {
