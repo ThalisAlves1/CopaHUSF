@@ -1797,7 +1797,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       <div>
                         <p className="font-black">Critério do ranking individual: engajamento.</p>
                         <p className="text-brand-700 text-xs sm:text-sm mt-0.5">
-                          A posição agora considera o aproveitamento nos quizzes das metas, igual ao ranking dos setores. As moedas da carteira não definem mais a colocação.
+                          A posição considera o aproveitamento nos quizzes das metas, igual ao ranking dos setores. As moedas da carteira não definem a colocação.
                         </p>
                       </div>
                     </div>
