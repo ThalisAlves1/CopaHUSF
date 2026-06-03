@@ -293,7 +293,7 @@ export default function App() {
       ) : (
         <Login onLoginSuccess={handleLoginSuccess} />
       )}
-      <footer className="fixed bottom-0 left-0 right-0 z-[80] border-t border-white/10 bg-slate-950/85 px-4 py-2 text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70 backdrop-blur-md sm:text-xs">
+      <footer className="fixed bottom-1 left-0 right-0 z-[80] px-3 text-center text-[9px] font-medium text-white/35">
   Criado pela Diretoria de Ensino e Pesquisa / NSP-Qualidade
 </footer>
     </>
