@@ -35,6 +35,63 @@ interface DashboardProps {
 }
 
 type TabContent = 'inicio' | 'desafios' | 'album' | 'loja' | 'perfil' | 'ranking' | 'trocas' | 'admin' | 'estudo';
+type AdminSection = 'overview' | 'colaboradores' | 'metas' | 'figurinhas' | 'monitoramento';
+
+interface DashboardHistoryState {
+  husfDashboardRoute: true;
+  activeTab: TabContent;
+  selectedMeta: number | null;
+  studyMetaId: number | null;
+  isQuizActive: boolean;
+  adminSection: AdminSection;
+}
+
+const TAB_VALUES: TabContent[] = ['inicio', 'desafios', 'album', 'loja', 'perfil', 'ranking', 'trocas', 'admin', 'estudo'];
+const ADMIN_SECTION_VALUES: AdminSection[] = ['overview', 'colaboradores', 'metas', 'figurinhas', 'monitoramento'];
+
+function isTabContent(value: string | null): value is TabContent {
+  return !!value && TAB_VALUES.includes(value as TabContent);
+}
+
+function isAdminSection(value: string | null): value is AdminSection {
+  return !!value && ADMIN_SECTION_VALUES.includes(value as AdminSection);
+}
+
+function buildDashboardHash(route: DashboardHistoryState) {
+  const params = new URLSearchParams();
+  params.set('tab', route.activeTab);
+  if (route.selectedMeta !== null) params.set('meta', String(route.selectedMeta));
+  if (route.studyMetaId !== null) params.set('study', String(route.studyMetaId));
+  if (route.isQuizActive) params.set('quiz', '1');
+  if (route.activeTab === 'admin') params.set('admin', route.adminSection);
+  return `#${params.toString()}`;
+}
+
+function parseDashboardHash(): DashboardHistoryState | null {
+  if (typeof window === 'undefined' || !window.location.hash) return null;
+
+  const rawHash = window.location.hash.replace(/^#/, '');
+  const params = new URLSearchParams(rawHash);
+  const tab = params.get('tab');
+  if (!isTabContent(tab)) return null;
+
+  const meta = Number(params.get('meta'));
+  const study = Number(params.get('study'));
+  const admin = params.get('admin');
+
+  return {
+    husfDashboardRoute: true,
+    activeTab: tab,
+    selectedMeta: Number.isFinite(meta) && meta > 0 ? meta : null,
+    studyMetaId: Number.isFinite(study) && study > 0 ? study : null,
+    isQuizActive: params.get('quiz') === '1',
+    adminSection: isAdminSection(admin) ? admin : 'overview',
+  };
+}
+
+function isDashboardHistoryState(state: unknown): state is DashboardHistoryState {
+  return !!state && typeof state === 'object' && (state as DashboardHistoryState).husfDashboardRoute === true;
+}
 
 function sameUserData(a?: User | null, b?: User | null) {
   if (!a || !b) return false;
@@ -69,7 +126,8 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   const [isQuizActive, setIsQuizActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [adminRefresh, setAdminRefresh] = useState(0);
-  const [adminSection, setAdminSection] = useState<'overview' | 'colaboradores' | 'metas' | 'figurinhas' | 'monitoramento'>('overview');
+  const [adminSection, setAdminSection] = useState<AdminSection>('overview');
+  const [quizResult, setQuizResult] = useState<{coins: number, correct: number} | null>(null);
 
   // Dynamic user list and registration states
   const [usersList, setUsersList] = useState<User[]>(() => getStoredUsers());
@@ -529,8 +587,6 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
         return b.totalCoins - a.totalCoins;
       });
   };
-  const [quizResult, setQuizResult] = useState<{coins: number, correct: number} | null>(null);
-
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 12) return 'Bom dia';
@@ -538,27 +594,206 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     return 'Boa noite';
   };
 
-  const handleTabChange = (tab: TabContent) => {
+  const writeDashboardHistory = (route: DashboardHistoryState, mode: 'push' | 'replace' = 'push') => {
+    if (typeof window === 'undefined') return;
+
+    const currentState = window.history.state;
+    const sameRoute = isDashboardHistoryState(currentState)
+      && currentState.activeTab === route.activeTab
+      && currentState.selectedMeta === route.selectedMeta
+      && currentState.studyMetaId === route.studyMetaId
+      && currentState.isQuizActive === route.isQuizActive
+      && currentState.adminSection === route.adminSection;
+
+    if (mode === 'push' && sameRoute) return;
+
+    const url = `${window.location.pathname}${window.location.search}${buildDashboardHash(route)}`;
+    if (mode === 'replace') {
+      window.history.replaceState(route, '', url);
+      return;
+    }
+
+    window.history.pushState(route, '', url);
+  };
+
+  const restoreDashboardRoute = (route: DashboardHistoryState) => {
+    setActiveTab(route.activeTab);
+    setSelectedMeta(route.selectedMeta);
+    setStudyMetaId(route.studyMetaId);
+    setIsQuizActive(route.isQuizActive);
+    setAdminSection(route.adminSection);
+    setQuizResult(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    const initialRoute: DashboardHistoryState = parseDashboardHash() || {
+      husfDashboardRoute: true,
+      activeTab: 'inicio',
+      selectedMeta: null,
+      studyMetaId: null,
+      isQuizActive: false,
+      adminSection: 'overview',
+    };
+
+    restoreDashboardRoute(initialRoute);
+    writeDashboardHistory(initialRoute, 'replace');
+
+    const handleBrowserBack = (event: PopStateEvent) => {
+      if (isDashboardHistoryState(event.state)) {
+        restoreDashboardRoute(event.state);
+      }
+    };
+
+    window.addEventListener('popstate', handleBrowserBack);
+    return () => window.removeEventListener('popstate', handleBrowserBack);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleTabChange = (tab: TabContent, mode: 'push' | 'replace' = 'push') => {
+    const route: DashboardHistoryState = {
+      husfDashboardRoute: true,
+      activeTab: tab,
+      selectedMeta: null,
+      studyMetaId: null,
+      isQuizActive: false,
+      adminSection,
+    };
+
     setActiveTab(tab);
-    if (tab === 'estudo') {
-      setStudyMetaId(null);
+    setStudyMetaId(null);
+    setIsQuizActive(false);
+    setQuizResult(null);
+    setSelectedMeta(null);
+    writeDashboardHistory(route, mode);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleAdminSectionChange = (section: AdminSection, mode: 'push' | 'replace' = 'push') => {
+    const route: DashboardHistoryState = {
+      husfDashboardRoute: true,
+      activeTab: 'admin',
+      selectedMeta: null,
+      studyMetaId: null,
+      isQuizActive: false,
+      adminSection: section,
+    };
+
+    setActiveTab('admin');
+    setSelectedMeta(null);
+    setStudyMetaId(null);
+    setIsQuizActive(false);
+    setQuizResult(null);
+    setAdminSection(section);
+    writeDashboardHistory(route, mode);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSelectMeta = (metaId: number, mode: 'push' | 'replace' = 'push') => {
+    const route: DashboardHistoryState = {
+      husfDashboardRoute: true,
+      activeTab: 'desafios',
+      selectedMeta: metaId,
+      studyMetaId: null,
+      isQuizActive: false,
+      adminSection,
+    };
+
+    setActiveTab('desafios');
+    setSelectedMeta(metaId);
+    setStudyMetaId(null);
+    setIsQuizActive(false);
+    setQuizResult(null);
+    writeDashboardHistory(route, mode);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackToChallenges = () => {
+    const route: DashboardHistoryState = {
+      husfDashboardRoute: true,
+      activeTab: 'desafios',
+      selectedMeta: null,
+      studyMetaId: null,
+      isQuizActive: false,
+      adminSection,
+    };
+
+    setSelectedMeta(null);
+    setStudyMetaId(null);
+    setIsQuizActive(false);
+    setQuizResult(null);
+    writeDashboardHistory(route, 'replace');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleOpenStudyMaterial = (metaId: number | null = null) => {
+    const route: DashboardHistoryState = {
+      husfDashboardRoute: true,
+      activeTab: 'estudo',
+      selectedMeta,
+      studyMetaId: metaId,
+      isQuizActive: false,
+      adminSection,
+    };
+
+    setStudyMetaId(metaId);
+    setActiveTab('estudo');
+    setIsQuizActive(false);
+    setQuizResult(null);
+    writeDashboardHistory(route);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCloseStudyMaterial = () => {
+    if (selectedMeta !== null) {
+      handleSelectMeta(selectedMeta, 'replace');
+      return;
     }
-    if (tab !== 'desafios' && tab !== 'estudo') {
-      setSelectedMeta(null);
-      setIsQuizActive(false);
-      setQuizResult(null);
-    }
+    handleTabChange('inicio', 'replace');
   };
 
   const startQuiz = () => {
+    const route: DashboardHistoryState = {
+      husfDashboardRoute: true,
+      activeTab: 'desafios',
+      selectedMeta,
+      studyMetaId: null,
+      isQuizActive: true,
+      adminSection,
+    };
+
     setIsQuizActive(true);
     setQuizResult(null);
+    writeDashboardHistory(route);
+  };
+
+  const stopQuiz = (mode: 'push' | 'replace' = 'replace') => {
+    const route: DashboardHistoryState = {
+      husfDashboardRoute: true,
+      activeTab: 'desafios',
+      selectedMeta,
+      studyMetaId: null,
+      isQuizActive: false,
+      adminSection,
+    };
+
+    setIsQuizActive(false);
+    setQuizResult(null);
+    writeDashboardHistory(route, mode);
   };
 
   const handleQuizComplete = (coinsEarned: number, correctAnswers: number, newProgress: MetaProgress) => {
     onQuizFinish(newProgress.metaId, coinsEarned, correctAnswers, newProgress);
     setIsQuizActive(false);
     setQuizResult({ coins: coinsEarned, correct: correctAnswers });
+    writeDashboardHistory({
+      husfDashboardRoute: true,
+      activeTab: 'desafios',
+      selectedMeta: newProgress.metaId,
+      studyMetaId: null,
+      isQuizActive: false,
+      adminSection,
+    }, 'replace');
   };
 
   const handleRegisterCollaborator = async (e: React.FormEvent) => {
@@ -1113,13 +1348,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
               exit={{ opacity: 0, y: -10 }}
             >
               <StudyMaterial 
-                onClose={() => {
-                  if (selectedMeta !== null) {
-                    setActiveTab('desafios');
-                  } else {
-                    setActiveTab('inicio');
-                  }
-                }}
+                onClose={handleCloseStudyMaterial}
                 initialMetaId={studyMetaId}
               />
             </motion.div>
@@ -1167,7 +1396,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       <button
                         key={meta.id}
                         disabled={!canPlay}
-                        onClick={() => setSelectedMeta(meta.id)}
+                        onClick={() => handleSelectMeta(meta.id)}
                         className={`group bg-white rounded-2xl p-4 md:p-5 shadow-sm border transition-all flex items-center gap-5 text-left relative overflow-hidden ${
                           !canPlay 
                             ? 'bg-slate-50 border-slate-200/60 opacity-60 cursor-not-allowed' 
@@ -1235,9 +1464,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       metaColor={meta.color}
                       progress={user.progress[meta.id]}
                       onComplete={handleQuizComplete}
-                      onAbort={() => {
-                        setIsQuizActive(false);
-                      }}
+                      onAbort={() => stopQuiz('replace')}
                     />
                   );
                 })()
@@ -1261,7 +1488,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       className="space-y-6"
                     >
                       <button 
-                        onClick={() => { setSelectedMeta(null); setQuizResult(null); }}
+                        onClick={handleBackToChallenges}
                         className="flex items-center gap-2 text-slate-500 hover:text-brand-600 font-bold transition-colors mb-2"
                       >
                         <ArrowLeft className="w-5 h-5" />
@@ -1333,10 +1560,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
 
                         <div className="grid sm:grid-cols-2 gap-4 relative z-10">
                           <button 
-                            onClick={() => {
-                              setStudyMetaId(meta.id);
-                              setActiveTab('estudo');
-                            }}
+                            onClick={() => handleOpenStudyMaterial(meta.id)}
                             className="bg-white hover:bg-slate-50 text-slate-700 border-2 border-slate-200 py-4 px-4 sm:px-6 rounded-xl font-bold flex flex-col sm:flex-row items-center justify-center gap-3 transition-colors shadow-sm text-center"
                           >
                             <BookOpen className="w-6 h-6 text-brand-500 shrink-0" />
@@ -1938,7 +2162,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => setAdminSection(item.id as typeof adminSection)}
+                      onClick={() => handleAdminSectionChange(item.id as AdminSection)}
                       className={`rounded-2xl p-3 sm:p-4 text-left transition-all border flex items-center gap-3 cursor-pointer active:scale-[0.98] ${
                         isActive
                           ? 'bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white border-amber-300/60 shadow-md'
@@ -1976,17 +2200,17 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                         </p>
                       </div>
                       <div className="grid sm:grid-cols-3 gap-3">
-                        <button onClick={() => setAdminSection('colaboradores')} className="bg-white/10 hover:bg-white/15 border border-white/10 rounded-2xl p-4 text-left transition-all cursor-pointer active:scale-95">
+                        <button onClick={() => handleAdminSectionChange('colaboradores')} className="bg-white/10 hover:bg-white/15 border border-white/10 rounded-2xl p-4 text-left transition-all cursor-pointer active:scale-95">
                           <UserPlus className="w-5 h-5 text-amber-300 mb-2" />
                           <p className="font-extrabold text-sm">Equipe</p>
                           <p className="text-[11px] text-slate-300">Cadastrar e premiar</p>
                         </button>
-                        <button onClick={() => setAdminSection('metas')} className="bg-white/10 hover:bg-white/15 border border-white/10 rounded-2xl p-4 text-left transition-all cursor-pointer active:scale-95">
+                        <button onClick={() => handleAdminSectionChange('metas')} className="bg-white/10 hover:bg-white/15 border border-white/10 rounded-2xl p-4 text-left transition-all cursor-pointer active:scale-95">
                           <ShieldCheck className="w-5 h-5 text-emerald-300 mb-2" />
                           <p className="font-extrabold text-sm">Metas</p>
                           <p className="text-[11px] text-slate-300">{releasedMetas.length}/{METAS.length} liberadas</p>
                         </button>
-                        <button onClick={() => setAdminSection('figurinhas')} className="bg-white/10 hover:bg-white/15 border border-white/10 rounded-2xl p-4 text-left transition-all cursor-pointer active:scale-95">
+                        <button onClick={() => handleAdminSectionChange('figurinhas')} className="bg-white/10 hover:bg-white/15 border border-white/10 rounded-2xl p-4 text-left transition-all cursor-pointer active:scale-95">
                           <Trophy className="w-5 h-5 text-amber-300 mb-2" />
                           <p className="font-extrabold text-sm">Álbum</p>
                           <p className="text-[11px] text-slate-300">{allStickersCatalog.length} figurinhas</p>
@@ -2036,7 +2260,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                     </div>
                     <button
                       type="button"
-                      onClick={() => setAdminSection('monitoramento')}
+                      onClick={() => handleAdminSectionChange('monitoramento')}
                       className="bg-slate-900 hover:bg-slate-800 text-white rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-wide shadow-sm transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-2"
                     >
                       Abrir monitoramento <ArrowLeft className="w-4 h-4 rotate-180" />
