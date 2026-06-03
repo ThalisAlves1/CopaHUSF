@@ -66,6 +66,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   const [isQuizActive, setIsQuizActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [adminRefresh, setAdminRefresh] = useState(0);
+  const [adminSection, setAdminSection] = useState<'overview' | 'colaboradores' | 'metas' | 'figurinhas' | 'monitoramento'>('overview');
 
   // Dynamic user list and registration states
   const [usersList, setUsersList] = useState<User[]>(() => getStoredUsers());
@@ -1477,9 +1478,9 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                     <ShieldCheck className="w-4 h-4 text-purple-300" />
                     Ambiente de Controle
                   </span>
-                  <h1 className="text-3xl font-black font-[Space_Grotesk] tracking-tight mb-2">Painel de Gestão da Qualidade HUSF</h1>
+                  <h1 className="text-3xl font-black font-[Space_Grotesk] tracking-tight mb-2">Painel de Gestão da Copa da Segurança</h1>
                   <p className="text-purple-100 max-w-2xl leading-relaxed text-sm">
-                    Espaço administrative exclusivo para auditorias e testes de usabilidade. Gerencie moedas dos colaboradores, libere figurinhas para homologação rápida e visualize relatórios de desempenho operacional por metas.
+                    Organize colaboradores, metas, figurinhas, recompensas e acompanhamento em tempo real em um painel mais limpo e profissional.
                   </p>
                 </div>
               </div>
@@ -1497,7 +1498,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       Isso causa a <strong>divergência</strong> que você notou: os colaboradores cadastrados por você neste navegador <strong>ficam guardados apenas no cache deste PC</strong> e por isso não aparecem quando você abre o link no celular!
                     </p>
                     <div className="mt-3 bg-white p-3 rounded-lg border border-amber-200 text-[11px] text-slate-500 font-semibold space-y-1">
-                      <p className="text-amber-850 font-bold">Como resolver e habilitar a sincronização automática em tempo real:</p>
+                      <p className="text-amber-900 font-bold">Como resolver e habilitar a sincronização automática em tempo real:</p>
                       <ol className="list-decimal pl-4 space-y-0.5">
                         <li>Abra a aba <strong>Settings (Configurações)</strong> na barra lateral esquerda da sua plataforma AI Studio.</li>
                         <li>Clique na seção de <strong>Secrets (Segredos)</strong>.</li>
@@ -1529,7 +1530,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       </div>
                     ) : (
                       <div className="mt-3 bg-white p-3 rounded-lg border border-slate-200 text-[11px] text-slate-500 font-medium space-y-1">
-                        <p className="text-slate-855 font-bold">Como resolver:</p>
+                        <p className="text-slate-800 font-bold">Como resolver:</p>
                         <ul className="list-disc pl-4 space-y-0.5">
                           <li>Abra o Supabase e confira se o projeto não está pausado/inativo. Em plano gratuito, o primeiro acesso pode demorar.</li>
                           <li>Confirme se a URL e a Anon Key estão corretas, sem espaços extras, e reinicie o Dev Server do AI Studio.</li>
@@ -1593,6 +1594,107 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                 </div>
               </div>
 
+              {/* Navegação organizada do painel admin */}
+              <div className="bg-white rounded-3xl p-2 shadow-sm border border-slate-100 grid grid-cols-2 lg:grid-cols-5 gap-2">
+                {[
+                  { id: 'overview', label: 'Visão geral', sub: 'Resumo', icon: <Home className="w-4 h-4" /> },
+                  { id: 'colaboradores', label: 'Colaboradores', sub: 'Cadastro e ações', icon: <UserPlus className="w-4 h-4" /> },
+                  { id: 'metas', label: 'Metas', sub: 'Liberação', icon: <ShieldCheck className="w-4 h-4" /> },
+                  { id: 'figurinhas', label: 'Figurinhas', sub: 'Álbum', icon: <Trophy className="w-4 h-4" /> },
+                  { id: 'monitoramento', label: 'Monitoramento', sub: 'Auditoria', icon: <CheckCircle2 className="w-4 h-4" /> },
+                ].map((item) => {
+                  const isActive = adminSection === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setAdminSection(item.id as typeof adminSection)}
+                      className={`rounded-2xl p-3 sm:p-4 text-left transition-all border flex items-center gap-3 cursor-pointer active:scale-[0.98] ${
+                        isActive
+                          ? 'bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white border-amber-300/60 shadow-md'
+                          : 'bg-slate-50/70 hover:bg-white text-slate-600 border-transparent hover:border-slate-200'
+                      }`}
+                    >
+                      <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isActive ? 'bg-amber-400 text-slate-950' : 'bg-white text-emerald-700 border border-slate-100'}`}>
+                        {item.icon}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-xs sm:text-sm font-extrabold font-[Space_Grotesk] truncate">{item.label}</span>
+                        <span className={`block text-[10px] font-bold truncate ${isActive ? 'text-amber-100' : 'text-slate-400'}`}>{item.sub}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {adminSection === 'overview' && (
+                <div className="grid lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2 bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 text-white rounded-3xl p-6 sm:p-7 shadow-lg border border-amber-300/20 relative overflow-hidden">
+                    <div className="absolute -right-16 -top-16 w-56 h-56 bg-amber-400/20 rounded-full blur-3xl" />
+                    <div className="absolute right-6 bottom-6 opacity-10">
+                      <Trophy className="w-32 h-32" />
+                    </div>
+                    <div className="relative z-10 space-y-5">
+                      <span className="inline-flex items-center gap-2 bg-white/10 border border-white/10 rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-amber-100">
+                        <ShieldCheck className="w-3.5 h-3.5" /> Central do Administrador
+                      </span>
+                      <div>
+                        <h2 className="text-2xl sm:text-3xl font-black font-[Space_Grotesk] tracking-tight">Gestão organizada da competição</h2>
+                        <p className="text-sm text-slate-200 mt-2 max-w-xl leading-relaxed">
+                          Use os atalhos abaixo para cadastrar colaboradores, liberar metas, ajustar figurinhas e acompanhar o andamento da Copa da Segurança sem precisar rolar uma tela muito longa.
+                        </p>
+                      </div>
+                      <div className="grid sm:grid-cols-3 gap-3">
+                        <button onClick={() => setAdminSection('colaboradores')} className="bg-white/10 hover:bg-white/15 border border-white/10 rounded-2xl p-4 text-left transition-all cursor-pointer active:scale-95">
+                          <UserPlus className="w-5 h-5 text-amber-300 mb-2" />
+                          <p className="font-extrabold text-sm">Equipe</p>
+                          <p className="text-[11px] text-slate-300">Cadastrar e premiar</p>
+                        </button>
+                        <button onClick={() => setAdminSection('metas')} className="bg-white/10 hover:bg-white/15 border border-white/10 rounded-2xl p-4 text-left transition-all cursor-pointer active:scale-95">
+                          <ShieldCheck className="w-5 h-5 text-emerald-300 mb-2" />
+                          <p className="font-extrabold text-sm">Metas</p>
+                          <p className="text-[11px] text-slate-300">{releasedMetas.length}/{METAS.length} liberadas</p>
+                        </button>
+                        <button onClick={() => setAdminSection('figurinhas')} className="bg-white/10 hover:bg-white/15 border border-white/10 rounded-2xl p-4 text-left transition-all cursor-pointer active:scale-95">
+                          <Trophy className="w-5 h-5 text-amber-300 mb-2" />
+                          <p className="font-extrabold text-sm">Álbum</p>
+                          <p className="text-[11px] text-slate-300">{allStickersCatalog.length} figurinhas</p>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                      <h3 className="font-black text-slate-800 font-[Space_Grotesk]">Status rápido</h3>
+                      <span className={`text-[10px] font-extrabold px-2 py-1 rounded-full ${isSupabaseConfigured ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                        {isSupabaseConfigured ? 'Online' : 'Local'}
+                      </span>
+                    </div>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-3">
+                        <span className="text-slate-500 font-bold">Colaboradores</span>
+                        <span className="font-black text-slate-900">{usersList.length}</span>
+                      </div>
+                      <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-3">
+                        <span className="text-slate-500 font-bold">Setores</span>
+                        <span className="font-black text-slate-900">{new Set(usersList.map(u => u.sector)).size}</span>
+                      </div>
+                      <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-3">
+                        <span className="text-slate-500 font-bold">Metas liberadas</span>
+                        <span className="font-black text-emerald-700">{releasedMetas.length}/{METAS.length}</span>
+                      </div>
+                      <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-3">
+                        <span className="text-slate-500 font-bold">Figurinhas</span>
+                        <span className="font-black text-amber-600">{allStickersCatalog.length}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {adminSection === 'colaboradores' && (
+                <>
               {/* Audit Tools & Simulation */}
               <div className="grid md:grid-cols-5 gap-6">
                 
@@ -1925,7 +2027,11 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                 </div>
 
               </div>
+                </>
+              )}
 
+              {adminSection === 'metas' && (
+                <>
               {/* Controle de Liberação das Metas de Segurança */}
               <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
@@ -2010,16 +2116,20 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                   })}
                 </div>
               </div>
+                </>
+              )}
 
+              {adminSection === 'figurinhas' && (
+                <>
               {/* Gerenciamento de Figurinhas da Copa Celso */}
               <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100/90">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
                   <div>
                     <h3 className="font-bold text-slate-800 text-lg font-[Space_Grotesk] flex items-center gap-2">
                       <Trophy className="w-5 h-5 text-amber-500 animate-pulse" />
-                      Gerenciamento de Figurinhas da Copa Celso (Álbum)
+                      Gerenciamento de Figurinhas da Copa da Segurança (Álbum)
                     </h3>
-                    <p className="text-slate-400 text-xs mt-0.5">As figurinhas colecionáveis agora estão fixadas com total estabilidade no código do aplicativo.</p>
+                    <p className="text-slate-400 text-xs mt-0.5">Cadastre, edite e organize as figurinhas do álbum sem sobrecarregar o banco de dados.</p>
                   </div>
                 </div>
 
@@ -2044,8 +2154,8 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                           <p className="font-extrabold text-purple-800 text-[11px] uppercase tracking-wider mb-1">📂 2. Enviando Arquivos ao Projeto (Opcional)</p>
                           <p className="text-[10.5px] text-slate-500 font-medium leading-normal">Você pode carregar as imagens diretamente no gerenciador de arquivos do projeto com os nomes padronizados:</p>
                           <div className="bg-slate-50 p-1.5 rounded-lg text-slate-600 font-mono text-[9px] font-bold mt-1 inline-block">
-                            /src/assets/images/sticker_1.png (Figurinha #1)<br />
-                            /src/assets/images/sticker_13.png (Celso Paredão)
+                            /assets/images/sticker_1.webp (Figurinha #1)<br />
+                            /assets/images/sticker_13.webp (Figurinha #13)
                           </div>
                         </div>
                         <p className="text-[10px] text-slate-500 font-bold mt-2">O app detectará e carregará tudo automaticamente!</p>
@@ -2061,7 +2171,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       <h4 className="font-extrabold text-xs text-purple-700 uppercase tracking-widest mb-4 flex items-center justify-between font-[Space_Grotesk]">
                         <span>{editingStickerId !== null ? `✏️ Editar Figurinha #${editingStickerId}` : '✨ Adicionar Cromo no Catálogo'}</span>
                         {editingStickerId !== null && (
-                          <span className="text-[10px] lowercase normal-case text-purple-600 bg-purple-100/70 px-2.2 py-0.5 rounded font-extrabold animate-pulse">modo edição</span>
+                          <span className="text-[10px] lowercase normal-case text-purple-600 bg-purple-100/70 px-2 py-0.5 rounded font-extrabold animate-pulse">modo edição</span>
                         )}
                       </h4>
 
@@ -2147,7 +2257,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                               />
                               <Upload className="w-5 h-5 text-slate-400 mb-1" />
                               <span className="text-[10.5px] text-slate-500 font-bold text-center">Clique para escolher imagem do seu PC</span>
-                              <span className="text-[8px] text-slate-400 mt-0.5 uppercase tracking-wider font-extrabold text-purple-700">Compressão automática p/ base64 em tempo real</span>
+                              <span className="text-[8px] text-slate-400 mt-0.5 uppercase tracking-wider font-extrabold text-purple-700">Compressão automática para imagem leve</span>
                             </div>
                           </div>
 
@@ -2174,7 +2284,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                               </div>
                               <div className="min-w-0 flex-1">
                                 <span className="block text-[11px] text-purple-950 font-bold max-w-full truncate">Visualização ativa:</span>
-                                <span className="block text-[9.5px] text-slate-500 truncate max-w-full font-mono">{newStickerImage.startsWith('data:') ? '✓ Imagem Carregada do PC (Base64)' : newStickerImage}</span>
+                                <span className="block text-[9.5px] text-slate-500 truncate max-w-full font-mono">{newStickerImage.startsWith('data:') ? '✓ Imagem carregada do PC' : newStickerImage}</span>
                                 <button 
                                   type="button" 
                                   onClick={() => setNewStickerImage('')} 
@@ -2256,7 +2366,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                           placeholder="Buscar figurinha pelo nome..."
                           value={stickerSearch}
                           onChange={(e) => setStickerSearch(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-1.5 text-xs text-slate-805 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:bg-white font-medium transition-all"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:bg-white font-medium transition-all"
                         />
                       </div>
                     </div>
@@ -2276,7 +2386,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                           {allStickersCatalog
                             .filter(st => st.name.toLowerCase().includes(stickerSearch.toLowerCase()))
                             .map((st) => {
-                              let badgeColor = "bg-slate-100 text-slate-805";
+                              let badgeColor = "bg-slate-100 text-slate-800";
                               if (st.rarity === 'suprema') badgeColor = "bg-yellow-100 text-yellow-800 font-bold border border-yellow-200";
                               else if (st.rarity === 'lendaria') badgeColor = "bg-fuchsia-100 text-fuchsia-800 font-bold border border-fuchsia-200";
                               else if (st.rarity === 'holografica') badgeColor = "bg-cyan-100 text-cyan-800 font-bold border border-cyan-200";
@@ -2333,7 +2443,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                                           handleDeleteSticker(st.id);
                                         }
                                       }}
-                                      className={`p-1 px-2 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer active:scale-90 font-bold border-none ${isDeletingStickerId === st.id ? 'text-slate-400 bg-slate-150 cursor-not-allowed animate-pulse' : 'text-rose-600 hover:bg-rose-50'}`}
+                                      className={`p-1 px-2 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer active:scale-90 font-bold border-none ${isDeletingStickerId === st.id ? 'text-slate-400 bg-slate-100 cursor-not-allowed animate-pulse' : 'text-rose-600 hover:bg-rose-50'}`}
                                       title="Remover do catálogo"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
@@ -2356,7 +2466,11 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                   </div>
                 </div>
               </div>
+                </>
+              )}
 
+              {adminSection === 'colaboradores' && (
+                <>
               {/* Tabela robusta de gerenciamento e pesquisa de dados de colaboradores */}
               <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
@@ -2465,7 +2579,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                                     e.target.value = ''; // Reset select
                                   }
                                 }}
-                                className="text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg px-1.5 py-1.5 border border-indigo-150 outline-none cursor-pointer max-w-[110px]"
+                                className="text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg px-1.5 py-1.5 border border-indigo-100 outline-none cursor-pointer max-w-[110px]"
                                 defaultValue=""
                               >
                                 <option value="" disabled>🎁 Dar Figurinha</option>
@@ -2513,7 +2627,11 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                   </table>
                 </div>
               </div>
+                </>
+              )}
 
+              {adminSection === 'monitoramento' && (
+                <>
               {/* Simulated quality audit flow log stream */}
               <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
                 <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
@@ -2548,6 +2666,8 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                   </div>
                 </div>
               </div>
+                </>
+              )}
 
             </motion.div>
           )}

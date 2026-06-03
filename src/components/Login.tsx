@@ -1,22 +1,38 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { ShieldCheck, ArrowRight, Loader2, Building2, UserCheck, ArrowLeft, Wifi, WifiOff } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Award,
+  Building2,
+  ChevronRight,
+  Loader2,
+  Medal,
+  Shield,
+  ShieldCheck,
+  Sparkles,
+  Trophy,
+  User,
+} from 'lucide-react';
 import { formatCPF, simulateLogin } from '../lib/auth';
 import { isSupabaseConfigured, lastSupabaseError } from '../lib/supabase';
-import { User } from '../types';
-
+import { User as AppUser } from '../types';
 
 interface LoginProps {
-  onLoginSuccess: (user: User) => void;
+  onLoginSuccess: (user: AppUser) => void;
 }
+
+const highlights = [
+  { icon: ShieldCheck, label: 'Competição' },
+  { icon: Trophy, label: 'Engajamento' },
+  { icon: Medal, label: 'Reconhecimento' },
+];
 
 export function Login({ onLoginSuccess }: LoginProps) {
   const [cpf, setCpf] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [validatedUser, setValidatedUser] = useState<User | null>(null);
-
-  const [showManualSync, setShowManualSync] = useState(false);
+  const [validatedUser, setValidatedUser] = useState<AppUser | null>(null);
 
   const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCpf(formatCPF(e.target.value));
@@ -25,244 +41,256 @@ export function Login({ onLoginSuccess }: LoginProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (cpf.length !== 14) {
-      setError('Por favor, informe um CPF válido (11 dígitos).');
+      setError('Por favor, informe um CPF válido com 11 dígitos.');
       return;
     }
 
     setIsLoading(true);
     setError('');
-    
+
     try {
       const user = await simulateLogin(cpf);
+
       if (user) {
         setValidatedUser(user);
       } else if (!isSupabaseConfigured) {
-        setError('Este aparelho/build está em MODO LOCAL, sem conexão com o Supabase. Por isso ele só encontra usuários salvos neste navegador. Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no ambiente/deploy e publique novamente.');
+        setError('Este aparelho/build está em modo local, sem conexão com o Supabase. Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no ambiente/deploy e publique novamente.');
       } else if (lastSupabaseError) {
         setError(`Não foi possível consultar o Supabase: ${lastSupabaseError}`);
       } else {
-        setError('CPF não encontrado na tabela husf_users do Supabase. Confira se o colaborador foi cadastrado pelo admin e se o CPF está correto.');
+        setError('CPF não encontrado na tabela husf_users. Confira se o colaborador foi cadastrado pelo admin e se o CPF está correto.');
       }
-    } catch (err) {
-      setError('Erro ao conectar com o servidor.');
+    } catch {
+      setError('Erro ao conectar com o servidor. Tente novamente em alguns instantes.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 lg:p-10 bg-[#080d15] relative overflow-hidden font-sans">
-      {/* Immersive stadium layout background effects */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#0d948810_1px,transparent_1px),linear-gradient(to_bottom,#0d948810_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none" />
-      
-      {/* Smooth glowing orbs mimicking stadium floodlights in the corners */}
-      <div className="absolute -top-[10%] -left-[10%] w-[45%] h-[45%] rounded-full bg-teal-500/20 blur-[120px] pointer-events-none animate-pulse" />
-      <div className="absolute -bottom-[10%] -right-[10%] w-[45%] h-[45%] rounded-full bg-emerald-500/10 blur-[120px] pointer-events-none" />
-      <div className="absolute top-[40%] left-[30%] w-[30%] h-[30%] rounded-full bg-teal-600/10 blur-[130px] pointer-events-none" />
+    <main className="relative min-h-screen overflow-hidden bg-[#061018] text-white">
+      {/* Fundo: estádio + campo */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_12%,rgba(248,205,92,0.22),transparent_24%),radial-gradient(circle_at_88%_8%,rgba(74,144,226,0.24),transparent_26%),linear-gradient(115deg,#07140f_0%,#082015_34%,#071827_68%,#050b16_100%)]" />
+      <div className="absolute inset-0 opacity-[0.18] bg-[linear-gradient(to_right,rgba(255,255,255,.2)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,.14)_1px,transparent_1px)] bg-[size:72px_72px] [mask-image:radial-gradient(ellipse_at_center,#000_20%,transparent_72%)]" />
+      <div className="absolute left-[-10%] top-[-10%] h-[32rem] w-[32rem] rounded-full bg-emerald-400/20 blur-[120px]" />
+      <div className="absolute right-[-10%] top-[-12%] h-[34rem] w-[34rem] rounded-full bg-sky-400/20 blur-[130px]" />
+      <div className="absolute bottom-[-20%] left-1/2 h-[34rem] w-[80rem] -translate-x-1/2 rounded-[100%] bg-emerald-500/10 blur-[80px]" />
 
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.96, y: 15 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="w-full max-w-5xl bg-white/95 backdrop-blur-md rounded-[32px] shadow-[0_30px_70px_rgba(0,18,15,0.45)] overflow-hidden flex flex-col lg:flex-row border border-white/20 relative z-10"
-      >
-        {/* Left Side: Brilliant Championship Logo Banner */}
-        <div className="bg-gradient-to-br from-[#0c2e27] via-[#0d9488] to-[#04332d] p-8 md:p-12 lg:p-14 text-center text-white flex flex-col justify-between items-center lg:w-5/12 relative overflow-hidden border-b lg:border-b-0 lg:border-r border-teal-800/20">
-          {/* Subtle grid background mask */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_20%,_#031c18_100%)] opacity-60 pointer-events-none" />
-          <div className="absolute inset-0 opacity-10 bg-[linear-gradient(45deg,#000_25%,transparent_25%),linear-gradient(-45deg,#000_25%,transparent_25%)] bg-[size:20px_20px] pointer-events-none mix-blend-overlay" />
+      {/* Luzes do estádio */}
+      <div className="absolute left-0 top-0 h-36 w-[34rem] -translate-x-14 -rotate-12 bg-[radial-gradient(circle,rgba(255,255,255,.85)_0_3px,transparent_4px)] bg-[size:38px_38px] opacity-60 blur-[.2px]" />
+      <div className="absolute right-0 top-0 h-36 w-[34rem] translate-x-14 rotate-12 bg-[radial-gradient(circle,rgba(255,255,255,.82)_0_3px,transparent_4px)] bg-[size:38px_38px] opacity-55 blur-[.2px]" />
 
-          {/* HUSF Identity Tag */}
-          <div className="relative z-10 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-1.5 rounded-full text-[10px] font-extrabold tracking-widest text-teal-300 uppercase flex items-center gap-1.5 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            Hospital Universitário HUSF
-          </div>
+      {/* Linhas do campo */}
+      <div className="absolute inset-x-0 bottom-0 h-[34vh] bg-[linear-gradient(to_top,rgba(7,55,32,.82),rgba(7,55,32,.32),transparent)]" />
+      <div className="absolute bottom-[-13rem] left-1/2 h-[28rem] w-[58rem] -translate-x-1/2 rounded-[100%] border border-white/20" />
+      <div className="absolute bottom-[10%] left-0 h-px w-full bg-white/10" />
 
-          {/* Championship Logo and Title Area */}
-          <div className="my-auto py-8 flex flex-col items-center relative z-10">
-            <motion.div
-              initial={{ scale: 0.85, rotate: -4 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: "spring", stiffness: 120, damping: 14, delay: 0.15 }}
-              className="mb-8 relative"
-            >
-              {/* Radial glow directly behind the cup crown */}
-              <div className="absolute inset-0 rounded-full bg-teal-400/20 blur-3xl pointer-events-none scale-110" />
-              <img
-                src="/assets/images/copa_metas_logo_clean_1779667992235.png"
-                alt="Copa das Metas Shield"
-                className="w-64 h-64 md:w-80 md:h-80 lg:w-[340px] lg:h-[340px] object-contain filter drop-shadow-[0_16px_32px_rgba(0,0,0,0.5)] hover:scale-105 transition-transform duration-300 relative z-10"
-                referrerPolicy="no-referrer"
-              />
-            </motion.div>
+      {/* Bola geométrica decorativa */}
+      <div className="absolute right-[-7rem] top-[23%] hidden h-[26rem] w-[26rem] rounded-full border border-sky-300/10 lg:block">
+        <div className="absolute inset-10 rounded-full border border-sky-300/10" />
+        <div className="absolute left-20 top-20 h-36 w-36 rotate-12 border border-sky-300/15" />
+        <div className="absolute bottom-24 right-20 h-28 w-28 -rotate-12 border border-sky-300/15" />
+      </div>
 
-            <h1 className="text-3xl lg:text-4xl font-black mb-3.5 leading-none font-[Space_Grotesk] tracking-wider uppercase bg-gradient-to-b from-white via-slate-100 to-teal-100 bg-clip-text text-transparent filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]">
-              Copa das Metas
-            </h1>
+      {/* Partículas douradas */}
+      <div className="absolute inset-0 pointer-events-none opacity-70">
+        <span className="absolute left-[12%] top-[28%] h-1.5 w-1.5 rounded-full bg-amber-300/70 blur-[1px]" />
+        <span className="absolute left-[22%] bottom-[22%] h-1 w-1 rounded-full bg-amber-200/80" />
+        <span className="absolute right-[23%] top-[19%] h-1.5 w-1.5 rounded-full bg-amber-300/70 blur-[1px]" />
+        <span className="absolute right-[14%] bottom-[18%] h-2 w-2 rounded-full bg-amber-300/50 blur-[2px]" />
+        <span className="absolute left-[46%] top-[12%] h-1 w-1 rounded-full bg-white/70" />
+      </div>
 
-            <p className="text-teal-50/80 text-sm leading-relaxed max-w-xs font-semibold">
-              Treine e domine as <span className="text-amber-300 font-bold underline decoration-amber-400/55 decoration-2 underline-offset-4">6 Metas Internacionais</span> de Segurança do Paciente no nosso grande campeonato!
-            </p>
-          </div>
+      <section className="relative z-10 flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 lg:px-10">
+        <motion.div
+          initial={{ opacity: 0, y: 24, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.55, ease: 'easeOut' }}
+          className="w-full max-w-[780px]"
+        >
+          <div className="relative overflow-hidden rounded-[2rem] border border-amber-300/25 bg-white/[0.08] p-[1px] shadow-[0_32px_120px_rgba(0,0,0,.55)] backdrop-blur-2xl">
+            <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,214,102,.38),transparent_25%,rgba(59,130,246,.20)_78%,transparent)] opacity-70" />
+            <div className="relative rounded-[2rem] bg-[linear-gradient(135deg,rgba(8,35,24,.92),rgba(8,24,38,.94))] px-6 py-8 sm:px-10 sm:py-10 lg:px-14 lg:py-12">
+              <div className="mx-auto mb-7 flex w-fit flex-col items-center">
+                <div className="relative mb-4">
+                  <div className="absolute inset-0 rounded-full bg-amber-300/30 blur-2xl" />
+                  <div className="relative flex h-28 w-28 items-center justify-center rounded-[2rem] border border-amber-300/50 bg-[linear-gradient(145deg,#0d3b2d,#07172a)] shadow-[0_18px_50px_rgba(250,204,21,.14)] sm:h-32 sm:w-32">
+                    <div className="absolute -top-3 flex h-7 w-7 items-center justify-center rounded-full bg-amber-300 text-[#112019] shadow-lg shadow-amber-400/30">
+                      <Sparkles className="h-4 w-4" />
+                    </div>
+                    <Shield className="absolute h-24 w-24 text-amber-300/18 sm:h-28 sm:w-28" strokeWidth={1.2} />
+                    <Trophy className="relative h-14 w-14 text-amber-300 drop-shadow-[0_8px_18px_rgba(252,211,77,.35)] sm:h-16 sm:w-16" strokeWidth={1.8} />
+                  </div>
+                </div>
 
-          {/* Bottom Accreditation Authority */}
-          <div className="relative z-10 text-[10px] text-teal-300/60 font-black tracking-widest border-t border-white/10 pt-4 w-full uppercase">
-            Diretoria de Ensino e Pesquisa
-          </div>
-        </div>
-
-        {/* Right Side: High-Quality Interactive Line-up Form */}
-        <div className="p-6 sm:p-10 md:p-14 lg:p-16 lg:w-7/12 flex flex-col justify-center bg-white">
-          {validatedUser ? (
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ type: "spring", duration: 0.4 }}
-              className="space-y-6"
-            >
-              <div className="mb-6 text-center lg:text-left">
-                <span className="bg-emerald-50 text-emerald-800 px-3.5 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-widest mb-3.5 inline-flex items-center gap-2 border border-emerald-200 shadow-sm animate-pulse">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                  Escalação Encontrada!
-                </span>
-                <h2 className="text-3xl font-extrabold text-slate-900 mb-2 font-[Space_Grotesk] tracking-tight">Confirme sua Escalação</h2>
-                <p className="text-slate-500 text-sm leading-relaxed">
-                  Confirme seus dados profissionais abaixo para receber suas moedas e ingressar no campeonato.
+                <div className="flex items-center gap-3 text-amber-300">
+                  <span className="h-px w-14 bg-amber-300/55" />
+                  <span className="text-sm font-black uppercase tracking-[0.42em]">Copa da</span>
+                  <span className="h-px w-14 bg-amber-300/55" />
+                </div>
+                <h1 className="mt-2 text-center text-5xl font-black uppercase tracking-[0.08em] text-white drop-shadow-[0_4px_16px_rgba(0,0,0,.45)] sm:text-6xl">
+                  Segurança
+                </h1>
+                <div className="mt-5 h-1 w-24 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
+                <p className="mt-5 max-w-lg text-center text-base font-medium leading-relaxed text-slate-200/85 sm:text-lg">
+                  Acompanhe sua pontuação, conquistas e figurinhas em tempo real.
                 </p>
               </div>
 
-              {/* Styled as a beautiful official Match Pass / Player Card */}
-              <div className="bg-gradient-to-b from-slate-50 to-slate-100/50 rounded-2xl p-6 border border-slate-200/80 space-y-4 shadow-sm relative overflow-hidden">
-                {/* Visual texture */}
-                <div className="absolute right-0 top-0 w-32 h-32 bg-[#0d9488]/5 blur-2xl rounded-full" />
-                <div className="absolute left-0 bottom-0 w-24 h-24 bg-amber-500/5 blur-xl rounded-full" />
+              {validatedUser ? (
+                <motion.div
+                  initial={{ opacity: 0, x: 18 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.35 }}
+                  className="mx-auto max-w-xl space-y-5"
+                >
+                  <div className="rounded-3xl border border-emerald-300/20 bg-white/[0.08] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] sm:p-6">
+                    <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-300/10 px-3 py-1 text-xs font-black uppercase tracking-[0.22em] text-emerald-200">
+                      <span className="h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_14px_rgba(110,231,183,.9)]" />
+                      Escalação encontrada
+                    </div>
 
-                <div className="flex items-center gap-4 relative z-10">
-                  <div className="w-14 h-14 bg-gradient-to-tr from-teal-600 to-teal-500 text-white rounded-xl flex items-center justify-center font-black text-2xl shadow-md shadow-teal-600/15 shrink-0 border border-teal-500/20">
-                    {validatedUser.name.charAt(0)}
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-amber-300/30 bg-gradient-to-br from-amber-300 to-amber-600 text-2xl font-black text-[#071827] shadow-lg shadow-amber-500/15">
+                        {validatedUser.name.charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-200/80">Atleta registrado</p>
+                        <h2 className="truncate text-2xl font-black uppercase tracking-wide text-white">
+                          {validatedUser.name}
+                        </h2>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl border border-white/10 bg-black/18 p-4">
+                        <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Setor</span>
+                        <div className="flex items-center gap-2 text-sm font-bold text-slate-100">
+                          <Building2 className="h-4 w-4 shrink-0 text-amber-300" />
+                          <span className="truncate">{validatedUser.sector}</span>
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-black/18 p-4">
+                        <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">CPF</span>
+                        <div className="flex items-center gap-2 text-sm font-bold text-slate-100">
+                          <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-300" />
+                          <span className="font-mono">{validatedUser.cpf}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => onLoginSuccess(validatedUser)}
+                    className="group flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 px-6 py-4 text-base font-black uppercase tracking-[0.18em] text-[#071827] shadow-[0_18px_45px_rgba(245,158,11,.24)] transition-all hover:-translate-y-0.5 hover:shadow-[0_24px_55px_rgba(245,158,11,.34)] active:translate-y-0"
+                  >
+                    Confirmar entrada
+                    <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValidatedUser(null);
+                      setCpf('');
+                      setError('');
+                    }}
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-bold text-slate-300 transition-colors hover:bg-white/[0.1] hover:text-white"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Não sou eu, alterar CPF
+                  </button>
+                </motion.div>
+              ) : (
+                <motion.form
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: 0.12 }}
+                  onSubmit={handleSubmit}
+                  className="mx-auto max-w-xl space-y-5"
+                >
                   <div>
-                    <span className="text-[9px] text-teal-600 font-extrabold uppercase tracking-widest bg-teal-50 px-2.5 py-0.5 rounded border border-teal-100 inline-block mb-1">
-                      Atleta Registrado
-                    </span>
-                    <h3 className="text-xl font-bold text-slate-800 font-[Space_Grotesk] leading-tight uppercase tracking-wide">
-                      {validatedUser.name}
-                    </h3>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3.5 pt-4 border-t border-slate-200/50 relative z-10">
-                  <div className="bg-white/80 p-3 rounded-xl border border-slate-200/40 shadow-sm">
-                    <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-widest block mb-1">Setor Alocado</span>
-                    <div className="flex items-center gap-1.5 text-slate-700">
-                      <Building2 className="w-4 h-4 text-teal-600 shrink-0" />
-                      <p className="text-xs font-bold leading-none truncate">{validatedUser.sector}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-white/80 p-3 rounded-xl border border-slate-200/40 shadow-sm">
-                    <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-widest block mb-1">Registro CPF</span>
-                    <div className="flex items-center gap-1.5 text-slate-700">
-                      <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <p className="text-xs font-mono font-bold leading-none">{validatedUser.cpf}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => onLoginSuccess(validatedUser)}
-                  className="w-full bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-700 hover:to-teal-600 active:scale-[0.99] text-white font-extrabold py-4 px-6 rounded-xl flex items-center justify-center transition-all duration-200 shadow-lg shadow-teal-500/10 hover:shadow-teal-500/20 gap-2 cursor-pointer text-base uppercase tracking-wider"
-                >
-                  Confirmar Escalação / Jogar
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setValidatedUser(null);
-                    setCpf('');
-                  }}
-                  className="w-full bg-white hover:bg-slate-50 text-slate-500 border border-slate-200 text-xs font-bold py-3 px-4 rounded-xl flex items-center justify-center transition-colors gap-2 cursor-pointer hover:text-slate-700"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Não sou eu, alterar CPF
-                </button>
-              </div>
-            </motion.div>
-          ) : (
-            <>
-              <div className="mb-8 text-center lg:text-left">
-                <h2 className="text-3xl font-black text-slate-900 mb-2.5 font-[Space_Grotesk] tracking-tight">
-                  Entre em Campo
-                </h2>
-                <p className="text-slate-500 text-sm leading-relaxed">
-                  Insira o seu CPF para acessar o campeonato e iniciar a capacitação das 6 metas internacionais de segurança.
-                </p>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <label htmlFor="cpf" className="block text-xs font-extrabold text-slate-400 uppercase tracking-widest">
-                      Seu CPF de Acesso
+                    <label htmlFor="cpf" className="mb-3 block text-sm font-black uppercase tracking-[0.22em] text-white">
+                      CPF
                     </label>
-                    <span className="text-[10px] text-amber-600 font-extrabold uppercase tracking-wide bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
-                      Cadastro Único
-                    </span>
-                  </div>
-                  
-                  <div className="relative">
-                    <input
-                      id="cpf"
-                      type="text"
-                      value={cpf}
-                      onChange={handleCpfChange}
-                      placeholder="000.000.000-00"
-                      className={`w-full px-5 py-4 rounded-xl border-2 focus:ring-4 focus:outline-none transition-all duration-200 text-2xl tracking-widest text-center font-mono font-black ${
-                        error 
-                          ? 'border-red-300 focus:ring-red-100 focus:border-red-500 bg-red-50/5 text-red-700' 
-                          : 'border-slate-200 focus:ring-teal-100 focus:border-[#0d9488] bg-slate-50/30'
-                      }`}
-                      disabled={isLoading}
-                    />
-                  </div>
-                  
-                  {error && (
-                    <motion.p 
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      className="text-red-500 text-xs font-bold mt-2.5 flex items-center gap-1.5 md:leading-relaxed bg-red-50 border border-red-100 px-3.5 py-2.5 rounded-lg"
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                      {error}
-                    </motion.p>
-                  )}
-                </div>
+                    <div className="relative">
+                      <User className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-amber-300/90" />
+                      <input
+                        id="cpf"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        value={cpf}
+                        onChange={handleCpfChange}
+                        placeholder="Digite seu CPF"
+                        disabled={isLoading}
+                        className={`w-full rounded-2xl border bg-black/20 px-14 py-4 text-lg font-bold tracking-wide text-white outline-none backdrop-blur placeholder:text-slate-400 transition-all focus:ring-4 ${
+                          error
+                            ? 'border-red-300/60 focus:border-red-300 focus:ring-red-400/10'
+                            : 'border-white/15 focus:border-amber-300/70 focus:ring-amber-300/10'
+                        }`}
+                      />
+                    </div>
 
-                <button
-                  type="submit"
-                  disabled={isLoading || cpf.length !== 14}
-                  className="w-full bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-700 hover:to-teal-600 disabled:opacity-40 disabled:from-slate-300 disabled:to-slate-300 disabled:pointer-events-none text-white font-extrabold py-4 px-4 rounded-xl flex items-center justify-center transition-all duration-200 shadow-md shadow-teal-500/10 hover:shadow-lg cursor-pointer text-base uppercase tracking-wider"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      Buscar Minha Ficha
-                      <ArrowRight className="w-5 h-5 ml-2.5" />
-                    </>
-                  )}
-                </button>
-              </form>
-            </>
-          )}
-        </div>
-      </motion.div>
-    </div>
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-3 rounded-2xl border border-red-300/20 bg-red-500/10 px-4 py-3 text-sm font-semibold leading-relaxed text-red-100"
+                      >
+                        {error}
+                      </motion.div>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading || cpf.length !== 14}
+                    className="group flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 px-6 py-4 text-base font-black uppercase tracking-[0.22em] text-[#071827] shadow-[0_18px_45px_rgba(245,158,11,.22)] transition-all hover:-translate-y-0.5 hover:shadow-[0_24px_55px_rgba(245,158,11,.32)] active:translate-y-0 disabled:translate-y-0 disabled:cursor-not-allowed disabled:from-slate-500 disabled:to-slate-600 disabled:text-slate-300 disabled:shadow-none"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Entrando
+                      </>
+                    ) : (
+                      <>
+                        Entrar
+                        <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-4 text-slate-300">
+                    <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+                    <p className="text-sm font-medium leading-relaxed">
+                      Faça login para acessar seu perfil e acompanhar sua evolução.
+                    </p>
+                  </div>
+                </motion.form>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-xs font-black uppercase tracking-[0.18em] text-slate-300/80">
+            {highlights.map((item, index) => {
+              const Icon = item.icon;
+              return (
+                <React.Fragment key={item.label}>
+                  <div className="flex items-center gap-2">
+                    <Icon className="h-4 w-4 text-amber-300" />
+                    {item.label}
+                  </div>
+                  {index < highlights.length - 1 && <Award className="hidden h-3 w-3 text-amber-300/70 sm:block" />}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </motion.div>
+      </section>
+    </main>
   );
 }
