@@ -4,12 +4,45 @@ import { Dashboard } from './components/Dashboard';
 import { User, MetaProgress } from './types';
 import { openPackage } from './lib/store';
 import { appendActivityLog, createActivityEntry } from './lib/activity';
-import { getStoredUsers, saveStoredUsers, simulateLogin } from './lib/auth';
+import { getStoredUsers, simulateLogin } from './lib/auth';
 import { RefreshCw } from 'lucide-react';
+import { dbSaveSingleUser } from './lib/supabase';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
+
+  const saveUserLocallyOnly = (updatedUser: User) => {
+    try {
+      const users = getStoredUsers() || [];
+      const cleanUserCpf = updatedUser.cpf.replace(/\D/g, '');
+      const updatedUsers = users.map(u => {
+        if (!u || !u.cpf || typeof u.cpf !== 'string') return u;
+        return u.cpf.replace(/\D/g, '') === cleanUserCpf ? { ...updatedUser, cpf: u.cpf } : u;
+      });
+      const hasUser = updatedUsers.some(u => u && u.cpf && typeof u.cpf === 'string' && u.cpf.replace(/\D/g, '') === cleanUserCpf);
+      if (!hasUser) updatedUsers.push(updatedUser);
+      localStorage.setItem('husf_users', JSON.stringify(updatedUsers));
+    } catch (err) {
+      console.warn('Não foi possível salvar cache local do usuário:', err);
+    }
+  };
+
+  const persistLoggedUser = (nextUser: User) => {
+    const versionedUser: User = {
+      ...nextUser,
+      updatedAt: new Date().toISOString()
+    };
+
+    setUser(versionedUser);
+    saveUserLocallyOnly(versionedUser);
+
+    void dbSaveSingleUser(versionedUser).catch((err) => {
+      console.error('Erro ao salvar progresso do usuário no Supabase:', err);
+    });
+
+    return versionedUser;
+  };
 
   // Pull to Refresh state
   const [pullY, setPullY] = useState(0);
@@ -37,20 +70,12 @@ export default function App() {
     initSession();
   }, []);
 
-  // Update localStorage when user profile updates internally
+  // Update only the local cache when the logged user changes.
+  // Cloud sync is made with dbSaveSingleUser at the exact action moment
+  // so old local caches do not overwrite other collaborators.
   useEffect(() => {
     if (user && user.cpf) {
-      const users = getStoredUsers() || [];
-      const cleanUserCpf = user.cpf.replace(/\D/g, '');
-      const updatedUsers = users.map(u => {
-        if (!u || !u.cpf || typeof u.cpf !== 'string') return u;
-        return u.cpf.replace(/\D/g, '') === cleanUserCpf ? { ...user, cpf: u.cpf } : u;
-      });
-      const hasUser = updatedUsers.some(u => u && u.cpf && typeof u.cpf === 'string' && u.cpf.replace(/\D/g, '') === cleanUserCpf);
-      if (!hasUser) {
-        updatedUsers.push(user);
-      }
-      saveStoredUsers(updatedUsers);
+      saveUserLocallyOnly(user);
     }
   }, [user]);
 
@@ -149,7 +174,7 @@ export default function App() {
         coinsAfter
       }));
 
-      setUser(updatedUser);
+      persistLoggedUser(updatedUser);
       return stickers;
     }
     return [];
@@ -178,7 +203,7 @@ export default function App() {
       coinsAfter
     }));
 
-    setUser(updatedUser);
+    persistLoggedUser(updatedUser);
   };
 
   const handleTradeComplete = (givenStickerId: number, receivedStickerId: number) => {
@@ -199,7 +224,11 @@ export default function App() {
       coinsAfter: user.coins
     }));
 
-    setUser(updatedUser);
+    persistLoggedUser(updatedUser);
+  };
+
+  const handleUpdateUser = (updatedUser: User) => {
+    persistLoggedUser(updatedUser);
   };
 
   if (loadingSession) {
@@ -259,7 +288,7 @@ export default function App() {
           onBuyPack={handleBuyPack} 
           onQuizFinish={handleQuizFinish} 
           onTradeComplete={handleTradeComplete} 
-          onUpdateUser={setUser}
+          onUpdateUser={handleUpdateUser}
         />
       ) : (
         <Login onLoginSuccess={handleLoginSuccess} />

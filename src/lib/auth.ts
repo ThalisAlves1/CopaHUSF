@@ -1,5 +1,5 @@
 import { User } from '../types';
-import { dbFindUserByCpf, dbSaveUsers, DB_DEFAULT_USERS } from './supabase';
+import { dbFindUserByCpf, DB_DEFAULT_USERS } from './supabase';
 
 // Initialize local database back-up if not present or migrate existing back-up to Thalis Alves Ramos and Ana Souza admin
 const initialUsersRaw = localStorage.getItem('husf_users');
@@ -79,9 +79,10 @@ export function getStoredUsers(): User[] {
 }
 
 export function saveStoredUsers(users: User[]) {
+  // Salva apenas o cache local.
+  // A sincronização de progresso individual é feita com dbSaveSingleUser para evitar
+  // que um navegador com cache antigo sobrescreva moedas/figurinhas de outros usuários.
   localStorage.setItem('husf_users', JSON.stringify(users));
-  // Background-sync with Supabase
-  dbSaveUsers(users);
 }
 
 export const MOCK_USERS = getStoredUsers();

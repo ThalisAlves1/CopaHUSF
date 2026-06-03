@@ -34,4 +34,6 @@ export interface User {
   progress: Record<number, MetaProgress>;
   activityLog?: ActivityLogEntry[];
   isAdmin?: boolean;
+  updatedAt?: string;
 }
+

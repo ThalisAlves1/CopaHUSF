@@ -181,7 +181,8 @@ function mapSupabaseUserRow(row: any): User {
     coins: typeof row?.coins === 'number' ? row.coins : Number(row?.coins || 0),
     stickers: Array.isArray(row?.stickers) ? row.stickers : [],
     progress,
-    isAdmin: isThisAdmin
+    isAdmin: isThisAdmin,
+    updatedAt: row?.updated_at || row?.updatedAt
   };
 
   user.activityLog = getActivityLog(user);
@@ -206,6 +207,44 @@ function upsertLocalUserCache(user: User) {
   }
 }
 
+function getLocalCachedUserByCpf(cpf: string): User | null {
+  try {
+    const raw = localStorage.getItem('husf_users');
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return null;
+    const clean = normalizeCpf(cpf);
+    const found = parsed.find((u: any) => u && normalizeCpf(u?.cpf) === clean);
+    return found ? JSON.parse(JSON.stringify(found)) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getUserUpdatedTime(user?: User | null): number {
+  if (!user?.updatedAt) return 0;
+  const value = Date.parse(user.updatedAt);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function preferLocalIfNewer(remoteUser: User): User {
+  const localUser = getLocalCachedUserByCpf(remoteUser.cpf);
+  if (!localUser) return remoteUser;
+
+  const localTime = getUserUpdatedTime(localUser);
+  const remoteTime = getUserUpdatedTime(remoteUser);
+
+  // Quando o celular comprou figurinha/moeda e a nuvem ainda não recebeu,
+  // não deixe uma consulta antiga do Supabase apagar o progresso local.
+  if (localTime && (!remoteTime || localTime > remoteTime + 1000)) {
+    void dbSaveSingleUser(localUser).catch((err) => {
+      console.warn('Tentativa de reenviar progresso local mais recente falhou:', err);
+    });
+    return localUser;
+  }
+
+  return remoteUser;
+}
+
 export async function dbFindUserByCpf(cpf: string): Promise<User | null> {
   const cleanCpfInput = normalizeCpf(cpf);
   if (!cleanCpfInput) return null;
@@ -216,7 +255,7 @@ export async function dbFindUserByCpf(cpf: string): Promise<User | null> {
       const { data, error } = await promiseWithTimeout(
         supabaseClient
           .from('husf_users')
-          .select('cpf,name,sector,coins,stickers,progress,is_admin')
+          .select('cpf,name,sector,coins,stickers,progress,is_admin,updated_at')
           .in('cpf', variants) as any
       ) as any;
 
@@ -227,7 +266,7 @@ export async function dbFindUserByCpf(cpf: string): Promise<User | null> {
 
       if (!row) return null;
 
-      const user = mapSupabaseUserRow(row);
+      const user = preferLocalIfNewer(mapSupabaseUserRow(row));
       upsertLocalUserCache(user);
       return JSON.parse(JSON.stringify(user));
     } catch (err) {
@@ -421,7 +460,7 @@ export async function dbGetUsers(): Promise<User[]> {
       const { data, error } = await promiseWithTimeout(
         supabaseClient
           .from('husf_users')
-          .select('cpf,name,sector,coins,stickers,progress,is_admin')
+          .select('cpf,name,sector,coins,stickers,progress,is_admin,updated_at')
           .order('name', { ascending: true })
           .range(page * pageSize, (page + 1) * pageSize - 1) as any
       ) as any;
@@ -445,9 +484,10 @@ export async function dbGetUsers(): Promise<User[]> {
 
     if (allData.length > 0) {
       // Filter out records from supabase that don't have a valid cpf field
-      const parsed: User[] = allData
+      let parsed: User[] = allData
         .filter((u: any) => u && typeof u === 'object' && u.cpf)
-        .map(mapSupabaseUserRow);
+        .map(mapSupabaseUserRow)
+        .map(preferLocalIfNewer);
 
       // Ensure all DB_DEFAULT_USERS are present in the list returned to the app
       let remoteUpdated = false;
@@ -501,7 +541,7 @@ export async function dbSaveUsers(users: User[]): Promise<void> {
       stickers: u.stickers,
       progress: embedActivityLogInProgress(u),
       is_admin: !!u.isAdmin,
-      updated_at: new Date().toISOString()
+      updated_at: u.updatedAt || new Date().toISOString()
     }));
 
     const { error } = await promiseWithTimeout(
@@ -547,7 +587,7 @@ export async function dbSaveSingleUser(user: User): Promise<void> {
           stickers: user.stickers,
           progress: embedActivityLogInProgress(user),
           is_admin: !!user.isAdmin,
-          updated_at: new Date().toISOString()
+          updated_at: user.updatedAt || new Date().toISOString()
         }, { onConflict: 'cpf' }) as any
     ) as any;
 

@@ -7,7 +7,7 @@ import { Quiz } from './Quiz';
 import { Trading } from './Trading';
 import { WelcomeScreen } from './WelcomeScreen';
 import { StudyMaterial } from './StudyMaterial';
-import { getStoredUsers, saveStoredUsers, formatCPF } from '../lib/auth';
+import { getStoredUsers, formatCPF } from '../lib/auth';
 import { StickerDefinition, getStickerById, getAllStickers, getStoredStickers, saveStoredStickers } from '../lib/store';
 import { dbGetUsers, dbGetStickers, dbSaveSingleUser, dbDeleteUser, dbInsertSticker, dbUpdateSticker, dbDeleteSticker, dbSaveWholeCatalog, dbGetReleasedMetas, dbSaveReleasedMetas, subscribeToUsers, subscribeToStickers, subscribeToSettings, DB_DEFAULT_STICKERS, isSupabaseConfigured, lastSupabaseError } from '../lib/supabase';
 import { StickerImage } from './StickerImage';
@@ -114,6 +114,26 @@ function sameUserData(a?: User | null, b?: User | null) {
     activityLog: getActivityLog(b),
     isAdmin: !!b.isAdmin
   });
+}
+
+function getUserTimestamp(user?: User | null): number {
+  if (!user?.updatedAt) return 0;
+  const value = Date.parse(user.updatedAt);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function shouldApplyRemoteUser(currentUser: User, remoteUser: User) {
+  const currentTime = getUserTimestamp(currentUser);
+  const remoteTime = getUserTimestamp(remoteUser);
+
+  // Evita o bug de comprar figurinha/moedas mudarem na tela e depois voltarem.
+  // Isso acontecia quando o realtime trazia uma versão antiga do Supabase antes
+  // da compra terminar de sincronizar.
+  if (currentTime && remoteTime && remoteTime + 1000 < currentTime) {
+    return false;
+  }
+
+  return !sameUserData(currentUser, remoteUser);
 }
 
 export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComplete, onUpdateUser }: DashboardProps) {
@@ -455,7 +475,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
         setUsersList(freshUsers);
 
         const refreshedLoggedUser = freshUsers.find(u => u.cpf === user.cpf);
-        if (refreshedLoggedUser && onUpdateUser && !sameUserData(user, refreshedLoggedUser)) {
+        if (refreshedLoggedUser && onUpdateUser && shouldApplyRemoteUser(user, refreshedLoggedUser)) {
           onUpdateUser(refreshedLoggedUser);
         }
       } catch (err) {
