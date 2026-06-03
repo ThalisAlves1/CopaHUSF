@@ -453,6 +453,44 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   }, []);
 
 
+  const calculateUserEngagement = (u: User) => {
+    const metaIds = [1, 2, 3, 4, 5, 6];
+    const totalQuizCoins = metaIds.reduce((sum, metaId) => {
+      const prog = u.progress?.[metaId];
+      return sum + (prog?.totalCoinsEarned || 0);
+    }, 0);
+    const maxQuizCoins = metaIds.length * 150; // 6 metas x 150 pontos = 900 pontos possíveis
+    const aproveitamento = maxQuizCoins > 0 ? Math.round((totalQuizCoins / maxQuizCoins) * 1000) / 10 : 0;
+    const metasParticipadas = metaIds.filter(metaId => (u.progress?.[metaId]?.totalCoinsEarned || 0) > 0).length;
+    const metasConcluidas = metaIds.filter(metaId => (u.progress?.[metaId]?.totalCoinsEarned || 0) >= 150).length;
+
+    return {
+      totalQuizCoins,
+      maxQuizCoins,
+      aproveitamento,
+      metasParticipadas,
+      metasConcluidas
+    };
+  };
+
+  const computeIndividualRanking = () => {
+    return usersList
+      .filter(u => !u.isAdmin)
+      .map(u => ({
+        ...u,
+        engagement: calculateUserEngagement(u)
+      }))
+      .sort((a, b) => {
+        if (b.engagement.aproveitamento !== a.engagement.aproveitamento) {
+          return b.engagement.aproveitamento - a.engagement.aproveitamento;
+        }
+        if (b.engagement.totalQuizCoins !== a.engagement.totalQuizCoins) {
+          return b.engagement.totalQuizCoins - a.engagement.totalQuizCoins;
+        }
+        return a.name.localeCompare(b.name);
+      });
+  };
+
   const computeSectorRanking = () => {
     const sectorMap: Record<string, { totalCoins: number, memberCount: number, totalQuizCoins: number }> = {};
     usersList.forEach(u => {
@@ -462,14 +500,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       }
       sectorMap[u.sector].totalCoins += u.coins || 0;
       sectorMap[u.sector].memberCount += 1;
-
-      // Sum quiz coins earned
-      let quizSum = 0;
-      [1, 2, 3, 4, 5, 6].forEach(metaId => {
-        const prog = u.progress[metaId];
-        quizSum += prog?.totalCoinsEarned || 0;
-      });
-      sectorMap[u.sector].totalQuizCoins += quizSum;
+      sectorMap[u.sector].totalQuizCoins += calculateUserEngagement(u).totalQuizCoins;
     });
 
     return Object.entries(sectorMap)
@@ -1312,24 +1343,58 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
               
               <div className="p-4 md:p-6 flex-1 overflow-y-auto">
                 {rankingTab === 'individual' ? (
-                  <div className="flex flex-col gap-3">
-                    {[...usersList].filter(u => !u.isAdmin).sort((a, b) => b.coins - a.coins).map((rankedUser, index) => (
-                      <div key={rankedUser.cpf} className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border ${index === 0 ? 'bg-amber-50 border-amber-200' : index === 1 ? 'bg-slate-50 border-slate-200' : index === 2 ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-100'}`}>
-                        <div className={`w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center font-bold text-sm sm:text-lg rounded-full shrink-0 ${index === 0 ? 'bg-amber-400 text-white shadow-md' : index === 1 ? 'bg-slate-300 text-slate-700 shadow-sm' : index === 2 ? 'bg-orange-300 text-orange-800 shadow-sm' : 'bg-slate-100 text-slate-500'}`}>
-                          {index + 1}
-                        </div>
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center font-bold text-lg shrink-0 border border-brand-200">
-                          {rankedUser.name.charAt(0)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-slate-800 truncate text-sm sm:text-base">{rankedUser.name}</h3>
-                          <p className="text-xs sm:text-sm text-slate-500 truncate">{rankedUser.sector}</p>
-                        </div>
-                        <div className="shrink-0 flex items-center gap-1.5 font-bold text-amber-600 bg-amber-50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-amber-100 text-sm sm:text-base">
-                          {rankedUser.coins} <Coins className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                        </div>
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3 bg-brand-50 border border-brand-100 rounded-xl p-3 sm:p-4 text-sm text-brand-900">
+                      <Zap className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-black">Critério do ranking individual: engajamento.</p>
+                        <p className="text-brand-700 text-xs sm:text-sm mt-0.5">
+                          A posição agora considera o aproveitamento nos quizzes das metas, igual ao ranking dos setores. As moedas da carteira não definem mais a colocação.
+                        </p>
                       </div>
-                    ))}
+                    </div>
+
+                    <div className="flex flex-col gap-3">
+                      {computeIndividualRanking().map((rankedUser, index) => (
+                        <div key={rankedUser.cpf} className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border ${index === 0 ? 'bg-amber-50 border-amber-200' : index === 1 ? 'bg-slate-50 border-slate-200' : index === 2 ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-100'}`}>
+                          <div className={`w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center font-bold text-sm sm:text-lg rounded-full shrink-0 ${index === 0 ? 'bg-amber-400 text-white shadow-md' : index === 1 ? 'bg-slate-300 text-slate-700 shadow-sm' : index === 2 ? 'bg-orange-300 text-orange-800 shadow-sm' : 'bg-slate-100 text-slate-500'}`}>
+                            {index + 1}
+                          </div>
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center font-bold text-lg shrink-0 border border-brand-200">
+                            {rankedUser.name.charAt(0)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-slate-800 truncate text-sm sm:text-base">{rankedUser.name}</h3>
+                            <p className="text-xs sm:text-sm text-slate-500 truncate">{rankedUser.sector}</p>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] sm:text-xs text-slate-500">
+                              <span>Pontos Quizzes: <strong>{rankedUser.engagement.totalQuizCoins}</strong>/{rankedUser.engagement.maxQuizCoins}</span>
+                              <span className="text-slate-300">•</span>
+                              <span>Metas completas: <strong>{rankedUser.engagement.metasConcluidas}</strong>/6</span>
+                              {user.isAdmin && (
+                                <>
+                                  <span className="text-slate-300">•</span>
+                                  <span>Carteira: <strong>{rankedUser.coins}</strong> moedas</span>
+                                </>
+                              )}
+                            </div>
+                            <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-brand-600 rounded-full transition-all"
+                                style={{ width: `${Math.min(100, Math.max(0, rankedUser.engagement.aproveitamento))}%` }}
+                              />
+                            </div>
+                          </div>
+                          <div className="shrink-0 flex flex-col items-end gap-0.5">
+                            <div className="flex items-center gap-1 font-black text-brand-700 bg-brand-50 px-2 sm:px-3 py-1 rounded-lg border border-brand-100 text-sm sm:text-base">
+                              {rankedUser.engagement.aproveitamento}% <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-600" />
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-extrabold tracking-wider uppercase">
+                              Engajamento
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4">
