@@ -1080,3 +1080,241 @@ export async function dbUpsertTrade(trade: TradeSessionModel): Promise<void> {
     console.error('Failed to upsert trade session on Supabase:', err);
   }
 }
+
+// ────────────────────────────────────────────────────────────────────────
+// STICKER MARKETPLACE HELPERS
+// ────────────────────────────────────────────────────────────────────────
+
+export interface StickerMarketListing {
+  id: string;
+  sellerCpf: string;
+  sellerName: string;
+  stickerId: number;
+  price: number;
+  status: 'active' | 'sold' | 'cancelled';
+  buyerCpf?: string | null;
+  createdAt: string;
+  soldAt?: string | null;
+}
+
+function mapMarketListingRow(row: any): StickerMarketListing {
+  return {
+    id: String(row?.id || ''),
+    sellerCpf: String(row?.seller_cpf || row?.sellerCpf || ''),
+    sellerName: String(row?.seller_name || row?.sellerName || 'Colaborador'),
+    stickerId: Number(row?.sticker_id || row?.stickerId || 0),
+    price: Number(row?.price || 0),
+    status: (row?.status || 'active') as StickerMarketListing['status'],
+    buyerCpf: row?.buyer_cpf || row?.buyerCpf || null,
+    createdAt: row?.created_at || row?.createdAt || new Date().toISOString(),
+    soldAt: row?.sold_at || row?.soldAt || null,
+  };
+}
+
+function getLocalMarketListings(): StickerMarketListing[] {
+  try {
+    const raw = localStorage.getItem('husf_sticker_market');
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.map(mapMarketListingRow) : [];
+  } catch {
+    return [];
+  }
+}
+
+function setLocalMarketListings(listings: StickerMarketListing[]) {
+  try {
+    localStorage.setItem('husf_sticker_market', JSON.stringify(listings));
+  } catch (err) {
+    console.warn('Não foi possível salvar mercado local de figurinhas:', err);
+  }
+}
+
+function removeOneStickerFromArray(stickers: number[], stickerId: number): number[] {
+  const copy = [...stickers];
+  const index = copy.indexOf(stickerId);
+  if (index >= 0) copy.splice(index, 1);
+  return copy;
+}
+
+export async function dbGetMarketListings(status: 'active' | 'sold' | 'cancelled' | 'all' = 'active'): Promise<StickerMarketListing[]> {
+  if (!isSupabaseConfigured || !supabaseClient) {
+    const local = getLocalMarketListings();
+    return local
+      .filter(listing => status === 'all' || listing.status === status)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  }
+
+  try {
+    let query = supabaseClient
+      .from('husf_sticker_market')
+      .select('id,seller_cpf,seller_name,sticker_id,price,status,buyer_cpf,created_at,sold_at')
+      .order('created_at', { ascending: false }) as any;
+
+    if (status !== 'all') {
+      query = query.eq('status', status);
+    }
+
+    const { data, error } = await promiseWithTimeout(query, 15000) as any;
+    if (error) throw error;
+
+    const listings = (data || []).map(mapMarketListingRow);
+    setLocalMarketListings(listings);
+    return listings;
+  } catch (err) {
+    console.warn('Falha ao consultar mercado no Supabase, usando cache local:', err);
+    const local = getLocalMarketListings();
+    return local.filter(listing => status === 'all' || listing.status === status);
+  }
+}
+
+export async function dbCreateMarketListing(seller: User, stickerId: number, price: number): Promise<StickerMarketListing> {
+  const normalizedPrice = Math.round(Number(price));
+  if (!Number.isFinite(normalizedPrice) || normalizedPrice < 10 || normalizedPrice > 300) {
+    throw new Error('O preço precisa ficar entre 10 e 300 moedas.');
+  }
+
+  const ownedCount = (seller.stickers || []).filter(id => Number(id) === Number(stickerId)).length;
+  if (ownedCount <= 1) {
+    throw new Error('Você só pode vender figurinhas repetidas. A última unidade fica protegida no álbum.');
+  }
+
+  if (isSupabaseConfigured && supabaseClient) {
+    const { data, error } = await promiseWithTimeout(
+      supabaseClient.rpc('husf_create_market_listing', {
+        p_seller_cpf: seller.cpf,
+        p_sticker_id: stickerId,
+        p_price: normalizedPrice
+      }) as any,
+      15000
+    ) as any;
+
+    if (error) throw error;
+    return mapMarketListingRow(Array.isArray(data) ? data[0] : data);
+  }
+
+  const listing: StickerMarketListing = {
+    id: `local-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    sellerCpf: seller.cpf,
+    sellerName: seller.name,
+    stickerId,
+    price: normalizedPrice,
+    status: 'active',
+    buyerCpf: null,
+    createdAt: new Date().toISOString(),
+    soldAt: null,
+  };
+
+  const updatedSeller: User = {
+    ...seller,
+    stickers: removeOneStickerFromArray(seller.stickers || [], stickerId),
+    updatedAt: new Date().toISOString()
+  };
+
+  await dbSaveSingleUser(updatedSeller);
+  setLocalMarketListings([listing, ...getLocalMarketListings()]);
+  return listing;
+}
+
+export async function dbBuyMarketListing(listingId: string, buyer: User): Promise<StickerMarketListing> {
+  if (isSupabaseConfigured && supabaseClient) {
+    const { data, error } = await promiseWithTimeout(
+      supabaseClient.rpc('husf_buy_market_listing', {
+        p_listing_id: listingId,
+        p_buyer_cpf: buyer.cpf
+      }) as any,
+      15000
+    ) as any;
+
+    if (error) throw error;
+    return mapMarketListingRow(Array.isArray(data) ? data[0] : data);
+  }
+
+  const listings = getLocalMarketListings();
+  const listing = listings.find(item => item.id === listingId);
+  if (!listing || listing.status !== 'active') throw new Error('Essa figurinha não está mais disponível.');
+  if (listing.sellerCpf === buyer.cpf) throw new Error('Você não pode comprar seu próprio anúncio.');
+  if ((buyer.coins || 0) < listing.price) throw new Error('Saldo insuficiente para comprar essa figurinha.');
+
+  const seller = await dbFindUserByCpf(listing.sellerCpf);
+  if (!seller) throw new Error('Vendedor não encontrado.');
+
+  const updatedBuyer: User = {
+    ...buyer,
+    coins: buyer.coins - listing.price,
+    stickers: [...(buyer.stickers || []), listing.stickerId],
+    updatedAt: new Date().toISOString()
+  };
+
+  const updatedSeller: User = {
+    ...seller,
+    coins: (seller.coins || 0) + listing.price,
+    updatedAt: new Date().toISOString()
+  };
+
+  await dbSaveSingleUser(updatedSeller);
+  await dbSaveSingleUser(updatedBuyer);
+
+  const sold: StickerMarketListing = {
+    ...listing,
+    status: 'sold',
+    buyerCpf: buyer.cpf,
+    soldAt: new Date().toISOString()
+  };
+
+  setLocalMarketListings(listings.map(item => item.id === listingId ? sold : item));
+  return sold;
+}
+
+export async function dbCancelMarketListing(listingId: string, sellerCpf: string): Promise<StickerMarketListing> {
+  if (isSupabaseConfigured && supabaseClient) {
+    const { data, error } = await promiseWithTimeout(
+      supabaseClient.rpc('husf_cancel_market_listing', {
+        p_listing_id: listingId,
+        p_seller_cpf: sellerCpf
+      }) as any,
+      15000
+    ) as any;
+
+    if (error) throw error;
+    return mapMarketListingRow(Array.isArray(data) ? data[0] : data);
+  }
+
+  const listings = getLocalMarketListings();
+  const listing = listings.find(item => item.id === listingId);
+  if (!listing || listing.status !== 'active') throw new Error('Esse anúncio não está mais ativo.');
+  if (listing.sellerCpf !== sellerCpf) throw new Error('Você só pode cancelar seus próprios anúncios.');
+
+  const seller = await dbFindUserByCpf(sellerCpf);
+  if (!seller) throw new Error('Vendedor não encontrado.');
+
+  const updatedSeller: User = {
+    ...seller,
+    stickers: [...(seller.stickers || []), listing.stickerId],
+    updatedAt: new Date().toISOString()
+  };
+  await dbSaveSingleUser(updatedSeller);
+
+  const cancelled: StickerMarketListing = {
+    ...listing,
+    status: 'cancelled'
+  };
+
+  setLocalMarketListings(listings.map(item => item.id === listingId ? cancelled : item));
+  return cancelled;
+}
+
+export function subscribeToMarket(onUpdate: (payload: any) => void) {
+  if (!isSupabaseConfigured || !supabaseClient) return null;
+
+  return supabaseClient
+    .channel('husf_sticker_market_realtime')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'husf_sticker_market' },
+      (payload) => {
+        console.log('Realtime husf_sticker_market recebido:', payload);
+        onUpdate(payload);
+      }
+    )
+    .subscribe((status) => console.log('Status realtime husf_sticker_market:', status));
+}

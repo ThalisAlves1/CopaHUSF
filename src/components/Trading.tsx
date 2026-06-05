@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { QrCode, ScanLine, ArrowRightLeft, CheckCircle2, XCircle, AlertCircle, Trash2, ArrowRight, RefreshCcw } from 'lucide-react';
+import { QrCode, ScanLine, ArrowRightLeft, CheckCircle2, XCircle, AlertCircle, RefreshCcw, ShoppingCart, Tag, Loader2, Wallet, PlusCircle, Ban, Store as StoreIcon, Coins } from 'lucide-react';
 import { User } from '../types';
 import { STICKER_CATALOG, StickerDefinition, getAllStickers, getStickerById, StickerRarity } from '../lib/store';
 import { playSound } from '../lib/audio';
 import confetti from 'canvas-confetti';
-import { dbGetTrade, dbUpsertTrade } from '../lib/supabase';
+import { dbGetTrade, dbUpsertTrade, dbGetMarketListings, dbCreateMarketListing, dbBuyMarketListing, dbCancelMarketListing, dbFindUserByCpf, subscribeToMarket, StickerMarketListing } from '../lib/supabase';
+import { appendActivityLog, createActivityEntry } from '../lib/activity';
 import { StickerImage } from './StickerImage';
 
 interface TradingProps {
   user: User;
   onTradeComplete: (givenStickerId: number, receivedStickerId: number) => void;
+  onUserUpdate?: (updatedUser: User) => void;
+  initialMode?: 'trocas' | 'mercado';
 }
 
 interface TradeSession {
@@ -32,12 +35,26 @@ interface TradeSession {
 }
 
 
-export function Trading({ user, onTradeComplete }: TradingProps) {
+export function Trading({ user, onTradeComplete, onUserUpdate, initialMode = 'trocas' }: TradingProps) {
   const [view, setView] = useState<'menu' | 'select_duplicate' | 'wait_partner' | 'scan_code' | 'select_counter' | 'negotiating' | 'success'>('menu');
   const [role, setRole] = useState<'none' | 'initiator' | 'receiver'>('none');
   const [activeTrade, setActiveTrade] = useState<TradeSession | null>(null);
   const [scanCode, setScanCode] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  const [mode, setMode] = useState<'trocas' | 'mercado'>(initialMode);
+  const [marketListings, setMarketListings] = useState<StickerMarketListing[]>([]);
+  const [marketLoading, setMarketLoading] = useState(false);
+  const [marketError, setMarketError] = useState('');
+  const [marketSuccess, setMarketSuccess] = useState('');
+  const [sellStickerId, setSellStickerId] = useState<number | null>(null);
+  const [sellPrice, setSellPrice] = useState('40');
+  const [showOnlyMissing, setShowOnlyMissing] = useState(true);
+  const [processingListingId, setProcessingListingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
 
   const stickerCounts = user.stickers.reduce((acc, curr) => {
     acc[curr] = (acc[curr] || 0) + 1;
@@ -225,6 +242,166 @@ export function Trading({ user, onTradeComplete }: TradingProps) {
   };
 
 
+  const refreshMarketListings = async () => {
+    setMarketLoading(true);
+    try {
+      const listings = await dbGetMarketListings('active');
+      setMarketListings(listings);
+      setMarketError('');
+    } catch (err) {
+      setMarketError(err instanceof Error ? err.message : 'Não foi possível carregar o mercado de figurinhas.');
+    } finally {
+      setMarketLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    const load = async () => {
+      setMarketLoading(true);
+      try {
+        const listings = await dbGetMarketListings('active');
+        if (active) {
+          setMarketListings(listings);
+          setMarketError('');
+        }
+      } catch (err) {
+        if (active) setMarketError(err instanceof Error ? err.message : 'Não foi possível carregar o mercado de figurinhas.');
+      } finally {
+        if (active) setMarketLoading(false);
+      }
+    };
+
+    load();
+    const subscription = subscribeToMarket(() => load());
+
+    return () => {
+      active = false;
+      subscription?.unsubscribe();
+    };
+  }, []);
+
+  const applyFreshLoggedUser = async (entry: ReturnType<typeof createActivityEntry>) => {
+    if (!onUserUpdate) return;
+    const freshUser = await dbFindUserByCpf(user.cpf);
+    if (!freshUser) return;
+    onUserUpdate(appendActivityLog(freshUser, entry));
+  };
+
+  const handleCreateMarketListing = async () => {
+    setMarketError('');
+    setMarketSuccess('');
+
+    if (!sellStickerId) {
+      setMarketError('Selecione uma figurinha repetida para vender.');
+      return;
+    }
+
+    const price = Number(sellPrice);
+    if (!Number.isFinite(price) || price < 10 || price > 300) {
+      setMarketError('Informe um preço entre 10 e 300 moedas.');
+      return;
+    }
+
+    if ((stickerCounts[sellStickerId] || 0) <= 1) {
+      setMarketError('Você só pode vender figurinhas repetidas. A última unidade fica protegida no seu álbum.');
+      return;
+    }
+
+    setProcessingListingId('create');
+    try {
+      const created = await dbCreateMarketListing(user, sellStickerId, price);
+      const sticker = getStickerById(sellStickerId);
+
+      await applyFreshLoggedUser(createActivityEntry({
+        type: 'sticker',
+        title: 'Figurinha anunciada no mercado',
+        description: `Colocou a figurinha #${sellStickerId}${sticker ? ` (${sticker.name})` : ''} à venda por ${price} moedas.`,
+        stickerIds: [sellStickerId],
+        coinsBefore: user.coins,
+        coinsAfter: user.coins
+      }));
+
+      setSellStickerId(null);
+      setSellPrice('40');
+      setMarketSuccess(`Figurinha #${created.stickerId} anunciada por ${created.price} moedas.`);
+      await refreshMarketListings();
+    } catch (err) {
+      setMarketError(err instanceof Error ? err.message : 'Não foi possível anunciar a figurinha.');
+    } finally {
+      setProcessingListingId(null);
+    }
+  };
+
+  const handleBuyMarketListing = async (listing: StickerMarketListing) => {
+    setMarketError('');
+    setMarketSuccess('');
+
+    if (listing.sellerCpf === user.cpf) {
+      setMarketError('Você não pode comprar uma figurinha anunciada por você.');
+      return;
+    }
+
+    if (user.coins < listing.price) {
+      setMarketError(`Você precisa de ${listing.price} moedas para comprar essa figurinha. Saldo atual: ${user.coins}.`);
+      return;
+    }
+
+    setProcessingListingId(listing.id);
+    try {
+      const sold = await dbBuyMarketListing(listing.id, user);
+      const sticker = getStickerById(sold.stickerId);
+      const coinsAfter = user.coins - sold.price;
+
+      await applyFreshLoggedUser(createActivityEntry({
+        type: 'purchase',
+        title: 'Figurinha comprada no mercado',
+        description: `Comprou a figurinha #${sold.stickerId}${sticker ? ` (${sticker.name})` : ''} de ${sold.sellerName} por ${sold.price} moedas.`,
+        points: -sold.price,
+        stickerIds: [sold.stickerId],
+        coinsBefore: user.coins,
+        coinsAfter
+      }));
+
+      setMarketSuccess(`Compra concluída! A figurinha #${sold.stickerId} foi adicionada ao seu álbum.`);
+      playSound('success');
+      await refreshMarketListings();
+    } catch (err) {
+      setMarketError(err instanceof Error ? err.message : 'Não foi possível comprar a figurinha.');
+      playSound('error');
+    } finally {
+      setProcessingListingId(null);
+    }
+  };
+
+  const handleCancelMarketListing = async (listing: StickerMarketListing) => {
+    setMarketError('');
+    setMarketSuccess('');
+    setProcessingListingId(listing.id);
+
+    try {
+      const cancelled = await dbCancelMarketListing(listing.id, user.cpf);
+      const sticker = getStickerById(cancelled.stickerId);
+
+      await applyFreshLoggedUser(createActivityEntry({
+        type: 'sticker',
+        title: 'Venda de figurinha cancelada',
+        description: `Cancelou o anúncio da figurinha #${cancelled.stickerId}${sticker ? ` (${sticker.name})` : ''}. A figurinha voltou para o álbum.`,
+        stickerIds: [cancelled.stickerId],
+        coinsBefore: user.coins,
+        coinsAfter: user.coins
+      }));
+
+      setMarketSuccess('Anúncio cancelado e figurinha devolvida ao seu álbum.');
+      await refreshMarketListings();
+    } catch (err) {
+      setMarketError(err instanceof Error ? err.message : 'Não foi possível cancelar esse anúncio.');
+    } finally {
+      setProcessingListingId(null);
+    }
+  };
+
   const getRarityColor = (rarity: string) => {
     switch(rarity) {
       case 'suprema': return 'bg-yellow-400 border-yellow-300 text-yellow-950';
@@ -248,6 +425,229 @@ export function Trading({ user, onTradeComplete }: TradingProps) {
     );
   };
 
+  const visibleMarketListings = marketListings
+    .filter(listing => listing.status === 'active')
+    .filter(listing => !showOnlyMissing || !user.stickers.includes(listing.stickerId));
+
+  const ownMarketListings = marketListings.filter(listing => listing.status === 'active' && listing.sellerCpf === user.cpf);
+
+  const renderMarket = () => (
+    <div className="space-y-8">
+      <div className="rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-emerald-50 p-5 sm:p-6 overflow-hidden relative">
+        <div className="absolute right-0 top-0 h-32 w-32 translate-x-10 -translate-y-10 rounded-full bg-amber-300/30 blur-2xl" />
+        <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/80 border border-amber-200 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700 mb-3">
+              <StoreIcon className="w-3.5 h-3.5" /> Mercado da Copa
+            </div>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 font-[Space_Grotesk] leading-tight">Venda repetidas e compre figurinhas que faltam</h3>
+            <p className="text-sm text-slate-600 mt-2 max-w-2xl">Aqui a figurinha anunciada fica reservada. Se vender, o comprador recebe a figurinha e o vendedor recebe as moedas. Se cancelar, ela volta para o álbum.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 min-w-[220px]">
+            <div className="rounded-2xl bg-white/85 border border-white p-4 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Seu saldo</p>
+              <p className="text-2xl font-black text-amber-600 flex items-center gap-1"><Coins className="w-5 h-5" /> {user.coins}</p>
+            </div>
+            <div className="rounded-2xl bg-white/85 border border-white p-4 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Anúncios</p>
+              <p className="text-2xl font-black text-emerald-600">{marketListings.filter(l => l.status === 'active').length}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {(marketError || marketSuccess) && (
+        <div className={`rounded-2xl border p-4 flex items-start gap-3 ${marketError ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}>
+          {marketError ? <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" /> : <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />}
+          <p className="text-sm font-bold leading-relaxed">{marketError || marketSuccess}</p>
+          <button onClick={() => { setMarketError(''); setMarketSuccess(''); }} className="ml-auto opacity-70 hover:opacity-100"><XCircle className="w-5 h-5" /></button>
+        </div>
+      )}
+
+      <div className="grid xl:grid-cols-[380px,1fr] gap-6">
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm h-fit">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+              <Tag className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-black text-slate-900 font-[Space_Grotesk] leading-tight">Anunciar repetida</h4>
+              <p className="text-xs text-slate-500">A última unidade fica protegida no álbum.</p>
+            </div>
+          </div>
+
+          {duplicates.length === 0 ? (
+            <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+              <p className="font-bold text-slate-600 text-sm">Você ainda não tem repetidas para vender.</p>
+              <p className="text-xs text-slate-400 mt-1">Compre pacotes ou complete metas para conseguir novas figurinhas.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Escolha a repetida</label>
+                <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-3 gap-2 max-h-[260px] overflow-y-auto pr-1">
+                  {duplicates.map(id => {
+                    const sticker = getStickerById(id);
+                    const selected = sellStickerId === id;
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => setSellStickerId(id)}
+                        className={`rounded-2xl border p-2 text-left transition-all ${selected ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200' : 'border-slate-200 bg-white hover:border-emerald-200'}`}
+                      >
+                        <div className="aspect-[2.5/3.5] rounded-xl bg-slate-50 overflow-hidden flex items-center justify-center mb-2">
+                          {sticker && <StickerImage id={id} name={sticker.name} customImage={sticker.image} />}
+                        </div>
+                        <p className="text-[10px] font-black text-slate-800 leading-tight line-clamp-2">#{id} {sticker?.name || 'Figurinha'}</p>
+                        <p className="text-[9px] font-bold text-amber-600 mt-1">{stickerCounts[id] - 1} vendável</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Preço em moedas</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={10}
+                    max={300}
+                    value={sellPrice}
+                    onChange={e => setSellPrice(e.target.value.replace(/[^0-9]/g, ''))}
+                    className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3 font-black text-slate-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                    placeholder="40"
+                  />
+                  <div className="rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-amber-700 font-black flex items-center gap-1">
+                    <Coins className="w-4 h-4" />
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2">Preço permitido: 10 a 300 moedas.</p>
+              </div>
+
+              <button
+                onClick={handleCreateMarketListing}
+                disabled={processingListingId === 'create'}
+                className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-black py-4 shadow-lg shadow-emerald-900/10 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              >
+                {processingListingId === 'create' ? <Loader2 className="w-5 h-5 animate-spin" /> : <PlusCircle className="w-5 h-5" />}
+                Anunciar no mercado
+              </button>
+            </div>
+          )}
+
+          {ownMarketListings.length > 0 && (
+            <div className="mt-6 pt-5 border-t border-slate-100">
+              <h5 className="font-black text-slate-800 text-sm mb-3">Meus anúncios ativos</h5>
+              <div className="space-y-2">
+                {ownMarketListings.map(listing => {
+                  const sticker = getStickerById(listing.stickerId);
+                  return (
+                    <div key={listing.id} className="rounded-2xl bg-slate-50 border border-slate-200 p-3 flex items-center gap-3">
+                      <div className="w-12 h-16 rounded-xl bg-white overflow-hidden flex items-center justify-center border border-slate-100 shrink-0">
+                        {sticker && <StickerImage id={sticker.id} name={sticker.name} customImage={sticker.image} />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-black text-slate-800 truncate">#{listing.stickerId} {sticker?.name || 'Figurinha'}</p>
+                        <p className="text-xs font-bold text-amber-600">{listing.price} moedas</p>
+                      </div>
+                      <button
+                        onClick={() => handleCancelMarketListing(listing)}
+                        disabled={processingListingId === listing.id}
+                        className="rounded-xl bg-red-50 hover:bg-red-100 text-red-600 p-2 disabled:opacity-50"
+                        title="Cancelar anúncio"
+                      >
+                        {processingListingId === listing.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm min-h-[420px]">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+            <div>
+              <h4 className="font-black text-slate-900 font-[Space_Grotesk] leading-tight">Figurinhas à venda</h4>
+              <p className="text-xs text-slate-500">Compre usando suas moedas. A atualização acontece em tempo real.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowOnlyMissing(v => !v)}
+                className={`rounded-full px-3 py-2 text-[11px] font-black border transition-colors ${showOnlyMissing ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-500'}`}
+              >
+                Só as que faltam
+              </button>
+              <button onClick={refreshMarketListings} className="rounded-full border border-slate-200 p-2 text-slate-500 hover:bg-slate-50">
+                {marketLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {marketLoading && marketListings.length === 0 ? (
+            <div className="h-60 flex flex-col items-center justify-center text-slate-400 gap-3">
+              <Loader2 className="w-8 h-8 animate-spin" />
+              <p className="text-sm font-bold">Carregando mercado...</p>
+            </div>
+          ) : visibleMarketListings.length === 0 ? (
+            <div className="h-60 flex flex-col items-center justify-center text-center rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 p-8">
+              <ShoppingCart className="w-10 h-10 text-slate-300 mb-3" />
+              <p className="font-black text-slate-700">Nenhuma figurinha disponível agora.</p>
+              <p className="text-sm text-slate-400 mt-1">Quando alguém anunciar uma repetida, ela aparecerá aqui.</p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {visibleMarketListings.map(listing => {
+                const sticker = getStickerById(listing.stickerId);
+                const isOwn = listing.sellerCpf === user.cpf;
+                const alreadyHas = user.stickers.includes(listing.stickerId);
+                return (
+                  <div key={listing.id} className={`rounded-3xl border p-4 transition-all ${isOwn ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-200 hover:border-amber-300 hover:shadow-md'}`}>
+                    <div className="aspect-[2.5/3.5] max-h-52 mx-auto rounded-2xl bg-slate-50 border border-slate-100 overflow-hidden flex items-center justify-center mb-4">
+                      {sticker && <StickerImage id={sticker.id} name={sticker.name} customImage={sticker.image} />}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <h5 className="font-black text-slate-900 leading-tight text-sm line-clamp-2">#{listing.stickerId} {sticker?.name || 'Figurinha'}</h5>
+                        {alreadyHas && !isOwn && <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black text-slate-500">Você tem</span>}
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1 truncate">Vendedor: <strong>{isOwn ? 'você' : listing.sellerName}</strong></p>
+                      <div className="mt-4 flex items-center justify-between gap-3">
+                        <div className="rounded-2xl bg-amber-50 border border-amber-200 px-3 py-2 text-amber-700 font-black flex items-center gap-1">
+                          <Coins className="w-4 h-4" /> {listing.price}
+                        </div>
+                        {isOwn ? (
+                          <button
+                            onClick={() => handleCancelMarketListing(listing)}
+                            disabled={processingListingId === listing.id}
+                            className="rounded-2xl bg-red-50 hover:bg-red-100 text-red-600 font-black px-4 py-2 text-xs disabled:opacity-50"
+                          >
+                            Cancelar
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleBuyMarketListing(listing)}
+                            disabled={processingListingId === listing.id || user.coins < listing.price}
+                            className="rounded-2xl bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black px-4 py-2 text-xs flex items-center gap-2"
+                          >
+                            {processingListingId === listing.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
+                            Comprar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 min-h-[400px]">
       <div className="flex items-center justify-between mb-8">
@@ -260,7 +660,22 @@ export function Trading({ user, onTradeComplete }: TradingProps) {
         </div>
       </div>
 
-      {errorMsg && (
+      <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1.5">
+        <button
+          onClick={() => setMode('trocas')}
+          className={`rounded-xl px-3 py-3 text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 ${mode === 'trocas' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          <ArrowRightLeft className="w-4 h-4" /> Troca por código
+        </button>
+        <button
+          onClick={() => setMode('mercado')}
+          className={`rounded-xl px-3 py-3 text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 ${mode === 'mercado' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          <ShoppingCart className="w-4 h-4" /> Mercado
+        </button>
+      </div>
+
+      {errorMsg && mode === 'trocas' && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-3">
           <AlertCircle className="w-5 h-5 shrink-0" />
           <p className="font-medium">{errorMsg}</p>
@@ -268,6 +683,8 @@ export function Trading({ user, onTradeComplete }: TradingProps) {
         </div>
       )}
 
+      {mode === 'mercado' ? renderMarket() : (
+        <>
       {view === 'menu' && (
         <div className="grid md:grid-cols-2 gap-6">
           <button
@@ -488,6 +905,8 @@ export function Trading({ user, onTradeComplete }: TradingProps) {
             Voltar para Trocas
           </button>
         </motion.div>
+      )}
+        </>
       )}
 
     </div>

@@ -48,6 +48,7 @@ interface DashboardHistoryState {
 
 const TAB_VALUES: TabContent[] = ['inicio', 'desafios', 'album', 'loja', 'perfil', 'ranking', 'trocas', 'admin', 'estudo'];
 const ADMIN_SECTION_VALUES: AdminSection[] = ['overview', 'colaboradores', 'metas', 'figurinhas', 'monitoramento'];
+const MARKET_NEWS_STORAGE_PREFIX = 'husf_market_news_v1_seen';
 
 function isTabContent(value: string | null): value is TabContent {
   return !!value && TAB_VALUES.includes(value as TabContent);
@@ -148,6 +149,8 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   const [adminRefresh, setAdminRefresh] = useState(0);
   const [adminSection, setAdminSection] = useState<AdminSection>('overview');
   const [quizResult, setQuizResult] = useState<{coins: number, correct: number} | null>(null);
+  const [showMarketNewsModal, setShowMarketNewsModal] = useState(false);
+  const [tradingInitialMode, setTradingInitialMode] = useState<'trocas' | 'mercado'>('trocas');
 
   // Dynamic user list and registration states
   const [usersList, setUsersList] = useState<User[]>(() => getStoredUsers());
@@ -173,6 +176,27 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   const [isCreatingSticker, setIsCreatingSticker] = useState(false);
   const [isRestoringCatalog, setIsRestoringCatalog] = useState(false);
   const [isDeletingStickerId, setIsDeletingStickerId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user?.cpf || user.isAdmin) {
+      setShowMarketNewsModal(false);
+      return;
+    }
+
+    const cleanCpf = user.cpf.replace(/\D/g, '');
+    const storageKey = `${MARKET_NEWS_STORAGE_PREFIX}_${cleanCpf}`;
+
+    if (localStorage.getItem(storageKey) === 'seen') {
+      setShowMarketNewsModal(false);
+      return;
+    }
+
+    const marketNewsTimer = window.setTimeout(() => {
+      setShowMarketNewsModal(true);
+    }, 650);
+
+    return () => window.clearTimeout(marketNewsTimer);
+  }, [user?.cpf, user.isAdmin]);
 
   const handleStickerFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -687,6 +711,22 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     setSelectedMeta(null);
     writeDashboardHistory(route, mode);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const markMarketNewsAsSeen = () => {
+    if (!user?.cpf) return;
+    const cleanCpf = user.cpf.replace(/\D/g, '');
+    localStorage.setItem(`${MARKET_NEWS_STORAGE_PREFIX}_${cleanCpf}`, 'seen');
+  };
+
+  const handleCloseMarketNews = (openMarket = false) => {
+    markMarketNewsAsSeen();
+    setShowMarketNewsModal(false);
+
+    if (openMarket) {
+      setTradingInitialMode('mercado');
+      handleTabChange('trocas');
+    }
   };
 
   const handleAdminSectionChange = (section: AdminSection, mode: 'push' | 'replace' = 'push') => {
@@ -1753,7 +1793,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                animate={{ opacity: 1, y: 0 }}
                exit={{ opacity: 0, y: -10 }}
             >
-              <Trading user={user} onTradeComplete={onTradeComplete} />
+              <Trading user={user} onTradeComplete={onTradeComplete} onUserUpdate={onUpdateUser} initialMode={tradingInitialMode} />
             </motion.div>
           )}
 
@@ -3433,6 +3473,95 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
         </div>
 
       </div>
+
+      <AnimatePresence>
+        {showMarketNewsModal && !user.isAdmin && (
+          <motion.div
+            className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 px-4 py-6 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="market-news-title"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 18 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              transition={{ type: 'spring', stiffness: 220, damping: 22 }}
+              className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-amber-200/50 bg-white shadow-2xl"
+            >
+              <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-br from-emerald-600 via-brand-600 to-slate-900" />
+              <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-amber-300/30 blur-2xl" />
+              <div className="absolute -left-12 top-16 h-32 w-32 rounded-full bg-white/20 blur-2xl" />
+
+              <button
+                type="button"
+                onClick={() => handleCloseMarketNews(false)}
+                className="absolute right-4 top-4 z-10 rounded-full bg-white/15 p-2 text-white transition hover:bg-white/25"
+                aria-label="Fechar aviso"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <div className="relative p-5 sm:p-6">
+                <div className="mb-5 flex items-center gap-3 text-white">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/25 bg-white/15 shadow-lg backdrop-blur">
+                    <ShoppingBag className="h-7 w-7 text-amber-200" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="inline-flex rounded-full bg-amber-300 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-900">
+                      Novidade
+                    </span>
+                    <h2 id="market-news-title" className="mt-2 text-xl font-black leading-tight tracking-tight sm:text-2xl font-[Space_Grotesk]">
+                      Mercado de Figurinhas chegou!
+                    </h2>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <p className="text-sm font-semibold leading-relaxed text-slate-600">
+                    Agora você pode colocar suas figurinhas repetidas à venda e comprar figurinhas que ainda faltam no seu álbum usando moedas.
+                  </p>
+
+                  <div className="mt-4 grid gap-2 text-xs font-bold text-slate-600">
+                    <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-emerald-800">
+                      <ArrowRightLeft className="h-4 w-4 shrink-0" />
+                      Venda apenas figurinhas repetidas.
+                    </div>
+                    <div className="flex items-center gap-2 rounded-2xl bg-amber-50 p-3 text-amber-800">
+                      <Coins className="h-4 w-4 shrink-0" />
+                      Ganhe moedas quando alguém comprar.
+                    </div>
+                    <div className="flex items-center gap-2 rounded-2xl bg-indigo-50 p-3 text-indigo-800">
+                      <LayoutGrid className="h-4 w-4 shrink-0" />
+                      Complete seu álbum mais rápido.
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={() => handleCloseMarketNews(true)}
+                      className="flex-1 rounded-2xl bg-gradient-to-r from-emerald-600 to-brand-600 px-4 py-3 text-sm font-black uppercase tracking-wide text-white shadow-lg shadow-emerald-600/20 transition hover:scale-[1.01] active:scale-[0.98]"
+                    >
+                      Conhecer o mercado
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCloseMarketNews(false)}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-500 transition hover:bg-slate-50"
+                    >
+                      Ver depois
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
