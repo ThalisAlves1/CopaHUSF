@@ -28,6 +28,12 @@ const highlights = [
   { icon: Medal, label: 'Reconhecimento' },
 ];
 
+const newEmployeeEmailHref = `mailto:diretoriaensino@husf.org.br?subject=${encodeURIComponent(
+  'Solicitação de cadastro - Copa da Segurança'
+)}&body=${encodeURIComponent(
+  'Olá, Diretoria de Ensino e Pesquisa / NSP-Qualidade.\n\nSolicito o cadastro de novo funcionário na Copa da Segurança.\n\nNome completo: \nCPF: \nSetor: \n\nObrigado(a).'
+)}`;
+
 export function Login({ onLoginSuccess }: LoginProps) {
   const [cpf, setCpf] = useState('');
   const [error, setError] = useState('');
@@ -270,6 +276,14 @@ export function Login({ onLoginSuccess }: LoginProps) {
                       Faça login para acessar seu perfil e acompanhar sua evolução.
                     </p>
                   </div>
+
+                  <a
+                    href={newEmployeeEmailHref}
+                    className="group flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-white/[0.06] px-4 py-3 text-center text-xs font-black uppercase tracking-[0.1em] text-amber-100 transition-all hover:-translate-y-0.5 hover:border-amber-300/40 hover:bg-amber-300/10 hover:text-white active:translate-y-0 sm:text-sm sm:tracking-[0.16em]"
+                  >
+                    Novo funcionário? Solicitar cadastro
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </a>
                 </motion.form>
               )}
             </div>
