@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+git import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Home, LogOut, CheckCircle2, Building2, PlayCircle, Trophy, ShoppingBag, Coins, LayoutGrid, UserCheck, MessageSquare, Pill, Stethoscope, Droplets, ShieldAlert, ArrowLeft, BookOpen, Crown, User as UserIcon, AlertCircle, Zap, ArrowRightLeft, Search, ShieldCheck, Award, UserPlus, Trash2, Lock, Unlock, Upload, Image, Database, Wifi, WifiOff, Edit, X } from 'lucide-react';
 import { User, MetaProgress } from '../types';
@@ -107,6 +107,15 @@ function getMetaAttemptCount(progress?: MetaProgress | null) {
   return Math.max(progress.totalAttempts || 0, progress.attemptsToday || 0);
 }
 
+function hasMetaQuizActivity(progress?: MetaProgress | null) {
+  if (!progress) return false;
+  return !!progress.hasPerfected
+    || (progress.totalCoinsEarned || 0) > 0
+    || (progress.totalAttempts || 0) > 0
+    || (progress.attemptsToday || 0) > 0
+    || !!progress.lastPlayedDate;
+}
+
 function sameUserData(a?: User | null, b?: User | null) {
   if (!a || !b) return false;
   return JSON.stringify({
@@ -173,6 +182,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   const [newRegError, setNewRegError] = useState('');
   const [newRegSuccess, setNewRegSuccess] = useState('');
   const [adminSearchFilter, setAdminSearchFilter] = useState('');
+  const [adminQuizSectorFilter, setAdminQuizSectorFilter] = useState('all');
   const [confirmDeleteCpf, setConfirmDeleteCpf] = useState<string | null>(null);
 
   // States for dynamic sticker creation and management
@@ -1205,6 +1215,86 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       .filter(item => !item.lastActivityAt || new Date(item.lastActivityAt).getTime() < sevenDaysAgo)
       .slice(0, 8);
   }, [usersList]);
+
+  const adminQuizSectorOptions = useMemo(() => {
+    const sectors = usersList
+      .filter(u => !u.isAdmin)
+      .map(u => u.sector)
+      .filter((sector): sector is string => Boolean(sector));
+    return Array.from(new Set<string>(sectors)).sort((a, b) => a.localeCompare(b));
+  }, [usersList]);
+
+  const adminQuizSectorReport = useMemo(() => {
+    const collaborators = usersList
+      .filter(u => !u.isAdmin)
+      .filter(u => adminQuizSectorFilter === 'all' || u.sector === adminQuizSectorFilter);
+
+    const rows = collaborators
+      .map((collaborator) => {
+        const metaStatuses = METAS.map((meta) => {
+          const progress = collaborator.progress?.[meta.id];
+          const answered = hasMetaQuizActivity(progress);
+          const completed = isMetaCompleted(progress);
+          return {
+            metaId: meta.id,
+            label: `M${meta.id}`,
+            answered,
+            completed,
+            attempts: getMetaAttemptCount(progress),
+            coins: progress?.totalCoinsEarned || 0
+          };
+        });
+
+        const didAnyQuiz = metaStatuses.some(item => item.answered);
+        const completedCount = metaStatuses.filter(item => item.completed).length;
+        const answeredCount = metaStatuses.filter(item => item.answered).length;
+        const quizActivities = getActivityLog(collaborator).filter(entry => entry.type === 'quiz');
+        const lastQuizAt = quizActivities[0]?.createdAt || null;
+        const engagement = calculateUserEngagement(collaborator);
+
+        return {
+          collaborator,
+          metaStatuses,
+          didAnyQuiz,
+          completedCount,
+          answeredCount,
+          lastQuizAt,
+          engagement
+        };
+      })
+      .sort((a, b) => Number(a.didAnyQuiz) - Number(b.didAnyQuiz) || a.collaborator.name.localeCompare(b.collaborator.name));
+
+    const total = rows.length;
+    const didQuiz = rows.filter(row => row.didAnyQuiz).length;
+    const completedAtLeastOne = rows.filter(row => row.completedCount > 0).length;
+    const pending = total - didQuiz;
+    const averageEngagement = total > 0
+      ? Math.round((rows.reduce((sum, row) => sum + row.engagement.aproveitamento, 0) / total) * 10) / 10
+      : 0;
+
+    const metaTotals = METAS.map((meta) => {
+      const answered = rows.filter(row => row.metaStatuses.find(item => item.metaId === meta.id)?.answered).length;
+      const completed = rows.filter(row => row.metaStatuses.find(item => item.metaId === meta.id)?.completed).length;
+      return {
+        meta,
+        answered,
+        completed,
+        answeredRate: total > 0 ? Math.round((answered / total) * 1000) / 10 : 0,
+        completedRate: total > 0 ? Math.round((completed / total) * 1000) / 10 : 0
+      };
+    });
+
+    return {
+      selectedSector: adminQuizSectorFilter === 'all' ? 'Todos os setores' : adminQuizSectorFilter,
+      total,
+      didQuiz,
+      completedAtLeastOne,
+      pending,
+      averageEngagement,
+      rows,
+      metaTotals
+    };
+  }, [usersList, adminQuizSectorFilter]);
 
   const adminEngagementReport = useMemo(() => {
     const collaborators = usersList.filter(u => !u.isAdmin);
@@ -3374,6 +3464,144 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
 
               {adminSection === 'monitoramento' && (
                 <>
+              <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5 pb-5 border-b border-slate-100">
+                  <div>
+                    <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-3 py-1 mb-2">
+                      <Building2 className="w-3.5 h-3.5" /> Acompanhamento por setor
+                    </span>
+                    <h3 className="font-black text-slate-900 text-xl sm:text-2xl font-[Space_Grotesk]">Quem fez os quizzes</h3>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-1 leading-relaxed">
+                      Filtre um setor, como Pronto Atendimento, e veja colaborador por colaborador quem já respondeu, quem concluiu metas e quem ainda está pendente.
+                    </p>
+                  </div>
+
+                  <div className="w-full lg:w-72">
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Filtrar setor</label>
+                    <select
+                      value={adminQuizSectorFilter}
+                      onChange={(e) => setAdminQuizSectorFilter(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                    >
+                      <option value="all">Todos os setores</option>
+                      {adminQuizSectorOptions.map((sector) => (
+                        <option key={sector} value={sector}>{sector}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
+                  <div className="rounded-2xl p-4 border border-slate-100 bg-slate-50">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Setor selecionado</p>
+                    <p className="text-lg font-black text-slate-900 font-[Space_Grotesk] mt-1 safe-text">{adminQuizSectorReport.selectedSector}</p>
+                    <p className="text-[11px] text-slate-500 font-semibold mt-1">{adminQuizSectorReport.total} colaboradores na lista</p>
+                  </div>
+                  <div className="rounded-2xl p-4 border border-emerald-100 bg-emerald-50/60">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Fizeram quiz</p>
+                    <p className="text-3xl font-black text-emerald-700 font-[Space_Grotesk] mt-1">{adminQuizSectorReport.didQuiz}</p>
+                    <p className="text-[11px] text-emerald-700 font-semibold mt-1">Responderam pelo menos uma meta</p>
+                  </div>
+                  <div className="rounded-2xl p-4 border border-rose-100 bg-rose-50/60">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-rose-700">Ainda não fizeram</p>
+                    <p className="text-3xl font-black text-rose-700 font-[Space_Grotesk] mt-1">{adminQuizSectorReport.pending}</p>
+                    <p className="text-[11px] text-rose-700 font-semibold mt-1">Prioridade para cobrar/incentivar</p>
+                  </div>
+                  <div className="rounded-2xl p-4 border border-blue-100 bg-blue-50/60">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-blue-700">Concluíram meta</p>
+                    <p className="text-3xl font-black text-blue-700 font-[Space_Grotesk] mt-1">{adminQuizSectorReport.completedAtLeastOne}</p>
+                    <p className="text-[11px] text-blue-700 font-semibold mt-1">Média do filtro: {adminQuizSectorReport.averageEngagement}%</p>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-3 xl:grid-cols-6 gap-2 mb-5">
+                  {adminQuizSectorReport.metaTotals.map((item) => (
+                    <div key={item.meta.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">{item.meta.title}</p>
+                      <p className="font-black text-slate-800 text-sm mt-1 safe-text">{item.answered}/{adminQuizSectorReport.total} fizeram</p>
+                      <p className="text-[11px] text-slate-500 font-semibold mt-0.5">{item.completed} concluíram • {item.completedRate}%</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                  <table className="w-full min-w-[880px] text-left">
+                    <thead className="bg-slate-50 border-b border-slate-100">
+                      <tr className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                        <th className="px-4 py-3">Colaborador</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-center">Metas feitas</th>
+                        <th className="px-4 py-3 text-center">Aproveitamento</th>
+                        <th className="px-4 py-3">Último quiz</th>
+                        <th className="px-4 py-3">Detalhe por meta</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {adminQuizSectorReport.rows.length > 0 ? adminQuizSectorReport.rows.map((row) => (
+                        <tr key={row.collaborator.cpf} className="bg-white hover:bg-slate-50/70 transition-colors">
+                          <td className="px-4 py-3">
+                            <p className="font-black text-slate-800 text-sm safe-text">{row.collaborator.name}</p>
+                            <p className="text-[11px] text-slate-500 font-semibold safe-text">{row.collaborator.sector}</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            {row.didAnyQuiz ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Fez quiz
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 text-rose-700 border border-rose-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider">
+                                <AlertCircle className="w-3.5 h-3.5" /> Pendente
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="font-black text-slate-800">{row.completedCount}/{METAS.length}</span>
+                            <p className="text-[10px] text-slate-400 font-bold">{row.answeredCount} respondidas</p>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="font-black text-brand-700">{row.engagement.aproveitamento}%</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs text-slate-500 font-bold">{row.lastQuizAt ? formatActivityTime(row.lastQuizAt) : 'Sem quiz registrado'}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-1.5">
+                              {row.metaStatuses.map((status) => (
+                                <span
+                                  key={`${row.collaborator.cpf}-${status.metaId}`}
+                                  title={`${status.label}: ${status.completed ? 'concluída' : status.answered ? 'respondida' : 'pendente'} • ${status.attempts} tentativa(s) • ${status.coins} pontos`}
+                                  className={`inline-flex items-center justify-center min-w-9 rounded-lg px-2 py-1 text-[10px] font-black border ${
+                                    status.completed
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                      : status.answered
+                                        ? 'bg-amber-50 text-amber-700 border-amber-100'
+                                        : 'bg-slate-50 text-slate-400 border-slate-100'
+                                  }`}
+                                >
+                                  {status.label}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      )) : (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-400 font-semibold">
+                            Nenhum colaborador encontrado para este setor.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-bold text-slate-500">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 px-2.5 py-1">Verde: meta concluída</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100 px-2.5 py-1">Amarelo: respondeu, mas ainda não concluiu</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 text-slate-500 border border-slate-100 px-2.5 py-1">Cinza: pendente</span>
+                </div>
+              </div>
+
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
                   <div className="flex items-center justify-between text-slate-400 mb-2">
