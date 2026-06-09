@@ -3,242 +3,242 @@ import { Question } from '../questions-type';
 export const META4_QUESTIONS: Question[] = [
   {
     id: "4-1",
-    text: "Quais são as três etapas sequenciais obrigatórias recomendadas para garantir uma cirurgia segura?",
+    text: "Qual é o objetivo principal da Meta 4 no material de estudo?",
     options: [
-      "Verificação pré-procedimento, marcação do local cirúrgico e pausa cirúrgica (Time Out).",
-      "Anestesia geral, incisão cirúrgica e sutura de fechamento de pele.",
-      "Internação hospitalar, pagamento da franquia e agendamento da sala de cirurgia.",
-      "Triagem de enfermagem, lavagem de roupas cirúrgicas e alta pós-anestésica."
+      "Prevenir erros relacionados a cirurgias ou procedimentos no paciente errado, local errado ou procedimento errado.",
+      "Reduzir o tempo de preparo cirúrgico eliminando etapas de confirmação.",
+      "Permitir que a equipe confirme os dados somente após o procedimento.",
+      "Substituir o consentimento pela confirmação verbal do profissional."
     ],
     correctIndex: 0,
-    feedback: "Estas três etapas estruturadas criam verificações sucessivas em momentos diferentes do fluxo cirúrgico para evitar desvios graves."
+    feedback: "A Meta 4 busca assegurar paciente, procedimento e local corretos antes de cirurgias ou procedimentos invasivos."
   },
   {
     id: "4-2",
-    text: "Qual o momento exato em que deve ocorrer a 'pausa cirúrgica' (Time out)?",
+    text: "A Meta 4 se aplica somente a cirurgias?",
     options: [
-      "Imediatamente antes de realizar a incisão cirúrgica ou iniciar o procedimento invasivo.",
-      "Logo após a indução anestésica, enquanto a equipe médica ainda está fora da sala.",
-      "Na recepção do centro cirúrgico, assim que o paciente cruza a porta de entrada.",
-      "Ao término do procedimento, antes de encaminhar o paciente para a sala de recuperação."
+      "Não. Também se aplica a procedimentos invasivos.",
+      "Sim. Procedimentos invasivos simples não precisam de confirmação.",
+      "Sim. Apenas cirurgias com anestesia geral entram na Meta 4.",
+      "Não. Ela se aplica somente a consultas ambulatoriais."
     ],
     correctIndex: 0,
-    feedback: "O Time Out é a última barreira coletiva realizada com toda a equipe acordada e presente em sala antes do início de qualquer ato invasivo irreversível."
+    feedback: "O material afirma que a Meta 4 se aplica a cirurgias e também a procedimentos invasivos."
   },
   {
     id: "4-3",
-    text: "Quem deve participar ativamente da pausa cirúrgica (Time Out) conforme as diretrizes?",
+    text: "O que deve ser confirmado antes do início do ato cirúrgico ou procedimento?",
     options: [
-      "Toda a equipe assistencial presente em sala: cirurgiões, anestesistas, enfermeiros e instrumentadores.",
-      "Exclusivamente o cirurgião principal que irá comandar o procedimento operatório.",
-      "Apenas o técnico de enfermagem circulante de sala e o instrumentador cirúrgico.",
-      "O paciente e o anestesista, dispensando a atenção do restante da equipe médica."
+      "Dados, procedimento, lateralidade, exames, materiais, consentimento e riscos.",
+      "Apenas o horário da cirurgia e o nome do cirurgião.",
+      "Somente se o paciente está em jejum.",
+      "Apenas se a sala está disponível."
     ],
     correctIndex: 0,
-    feedback: "O envolvimento de toda a equipe em voz alta garante que qualquer discrepância de informação seja levantada e resolvida antes da incisão."
+    feedback: "A equipe deve confirmar informações essenciais antes do início para evitar erros graves."
   },
   {
     id: "4-4",
-    text: "Em quais situações a marcação do local cirúrgico (sítio cirúrgico) é estritamente obrigatória?",
+    text: "Qual prática faz parte da Meta 4?",
     options: [
-      "Em procedimentos que envolvem lateralidade (direito/esquerdo), múltiplas estruturas ou locais anatômicos semelhantes.",
-      "Em todas as cirurgias de urgência extrema com risco iminente de morte do paciente.",
-      "Apenas em cirurgias plásticas de face para fins de simetria puramente estética.",
-      "Exclusivamente quando o cirurgião principal possuir menos de 5 anos de experiência prática."
+      "Realizar verificação pré-procedimento.",
+      "Confirmar o paciente somente depois da incisão.",
+      "Dispensar exames se o paciente souber explicar o procedimento.",
+      "Usar apenas o mapa cirúrgico como identificação final."
     ],
     correctIndex: 0,
-    feedback: "A demarcação física elimina a ambiguidade visual sobre qual estrutura ou membro correto deve sofrer a intervenção cirúrgica."
+    feedback: "A verificação pré-procedimento é uma das práticas principais da Meta 4."
   },
   {
     id: "4-5",
-    text: "Como deve ser realizada a marcação do local cirúrgico em relação à participação do paciente?",
+    text: "O que deve ser confirmado em relação ao local anatômico?",
     options: [
-      "Deve ser feita, sempre que possível, com o paciente acordado e consciente, confirmando o local exato com ele.",
-      "Deve ser realizada com o paciente já sob anestesia geral profunda dentro da sala operatória.",
-      "Deve ser desenhada à revelia do paciente, utilizando apenas dados obtidos por telefone com a recepção.",
-      "O próprio paciente deve desenhar o local anatômico utilizando caneta comum em sua residência antes da internação."
+      "O local correto do procedimento, incluindo lateralidade quando houver.",
+      "A cor da roupa usada pelo paciente.",
+      "O número do leito onde o paciente estava antes da cirurgia.",
+      "A preferência do acompanhante sobre o procedimento."
     ],
     correctIndex: 0,
-    feedback: "A concordância ativa do paciente acordado valida a marcação e evita falhas de interpretação documental no pré-operatório."
+    feedback: "Confirmar local anatômico e lateralidade evita procedimento no lado ou local errado."
   },
   {
     id: "4-6",
-    text: "Qual o tipo de marcador/tinta recomendado para realizar a demarcação do sítio cirúrgico?",
+    text: "Quando o local cirúrgico deve ser marcado?",
     options: [
-      "Caneta com tinta indelével (resistente à água) que permaneça visível após a antissepsia da pele.",
-      "Caneta esferográfica comum que saia facilmente com a aplicação de álcool 70%.",
-      "Lápis de maquiagem comum que possa ser apagado com o toque dos dedos da equipe.",
-      "Tintura de iodo aplicada com gaze apenas alguns segundos antes da cirurgia começar."
+      "Quando aplicável, especialmente em procedimentos com lateralidade.",
+      "Sempre depois que a cirurgia termina.",
+      "Somente quando não houver prontuário.",
+      "Apenas em pacientes internados há mais de 7 dias."
     ],
     correctIndex: 0,
-    feedback: "A tinta deve resistir ao preparo cirúrgico de pele com antissépticos para que a marcação cumpra seu papel protetor no momento do Time Out."
+    feedback: "A marcação do local é importante quando aplicável, principalmente em procedimentos que envolvem lado direito ou esquerdo."
   },
   {
     id: "4-7",
-    text: "O que deve ser verificado na etapa de verificação pré-procedimento?",
+    text: "O que é a pausa cirúrgica, também chamada de time out?",
     options: [
-      "Confirmação da identidade do paciente, do procedimento proposto, da lateralidade, do consentimento informado e exames necessários.",
-      "Apenas a conferência do valor dos honorários médicos e taxas da sala cirúrgica.",
-      "Se o paciente prefere um quarto com televisão ou com ar-condicionado na enfermaria.",
-      "A validação da limpeza de todas as janelas e aparelhos de ar-condicionado do bloco."
+      "Uma confirmação feita antes da incisão ou início do procedimento, envolvendo a equipe.",
+      "Um intervalo para descanso da equipe após o procedimento.",
+      "Uma checagem feita apenas pelo setor administrativo.",
+      "Uma etapa opcional usada somente quando há atraso."
     ],
     correctIndex: 0,
-    feedback: "Esta verificação documental e clínica inicial assegura que todos os pré-requisitos de segurança e autorização legal estão prontos e corretos."
+    feedback: "A pausa cirúrgica deve acontecer antes do procedimento começar e precisa envolver a equipe."
   },
   {
     id: "4-8",
-    text: "Se houver uma discrepância de informações durante a pausa cirúrgica, qual a conduta da equipe?",
+    text: "Qual item deve ser confirmado antes do procedimento quanto aos recursos necessários?",
     options: [
-      "O procedimento não deve ser iniciado até que a dúvida seja completamente esclarecida e resolvida por todos.",
-      "A cirurgia deve continuar normalmente, confiando na memória do cirurgião assistente sênior.",
-      "A equipe deve realizar uma votação por maioria simples para decidir qual lado operar.",
-      "O procedimento deve ser modificado no meio do caminho caso o erro seja confirmado após a abertura da pele."
+      "Disponibilidade de exames, equipamentos, materiais e equipe necessária.",
+      "Disponibilidade de estacionamento para familiares.",
+      "Preferência alimentar do paciente após alta.",
+      "Escala de férias da equipe administrativa."
     ],
     correctIndex: 0,
-    feedback: "A pausa cirúrgica é uma barreira de parada; qualquer dúvida ou discordância paralisa o ato até a validação absoluta dos dados reais."
+    feedback: "A Meta 4 inclui confirmar se exames, equipamentos, materiais e equipe necessários estão disponíveis."
   },
   {
     id: "4-9",
-    text: "Como a Meta 4 se aplica a procedimentos realizados fora do centro cirúrgico (ex: biópsia à beira do leito)?",
+    text: "No exemplo do material, o que a equipe confirma antes de cirurgia no joelho direito?",
     options: [
-      "Aplica-se com o mesmo rigor, exigindo verificação de dados, marcação de local (se aplicável) e realização da pausa antes do início.",
-      "Não se aplica a procedimentos fora do bloco cirúrgico, pois os riscos em enfermarias são considerados inexistentes.",
-      "Aplica-se de forma simplificada, dispensando o uso de checklists escritos e assinaturas formais.",
-      "Aplica-se apenas se o procedimento for realizado por um médico residente em treinamento."
+      "Paciente, procedimento, lateralidade, exames e pausa cirúrgica com todos presentes.",
+      "Somente a sala cirúrgica e a escala do médico.",
+      "Apenas se o paciente assinou a alta hospitalar.",
+      "Somente o diagnóstico registrado no prontuário."
     ],
     correctIndex: 0,
-    feedback: "Erros de local e procedimento correto também ocorrem em biópsias, punções profundas e endoscopias, demandando as mesmas barreiras de segurança."
+    feedback: "O exemplo reforça a confirmação completa antes da cirurgia, incluindo lateralidade e time out."
   },
   {
     id: "4-10",
-    text: "O que deve ser feito em relação à contagem de compressas e agulhas no Time Out e Sign-Out?",
+    text: "Como a pausa cirúrgica deve ser tratada?",
     options: [
-      "Confirmar a disponibilidade e realizar a contagem inicial e final para evitar o esquecimento de corpos estranhos na cavidade.",
-      "A contagem é dispensável caso a cirurgia seja realizada de forma rápida em menos de uma hora.",
-      "A contagem deve ser feita visualmente por estimativa rápida pelo cirurgião ao final da sutura.",
-      "Apenas registrar o peso das compressas sujas em balança comercial após a saída do paciente da sala."
+      "Como etapa essencial de segurança, não como mera formalidade.",
+      "Como uma etapa opcional, feita somente se alguém lembrar.",
+      "Como registro administrativo sem participação da equipe.",
+      "Como substituição da identificação do paciente."
     ],
     correctIndex: 0,
-    feedback: "A contagem rigorosa de materiais previne o evento adverso grave de retenção acidental de objetos dentro do corpo do paciente."
+    feedback: "O material alerta que a pausa cirúrgica não deve ser tratada como mera formalidade."
   },
   {
     id: "4-11",
-    text: "Em cirurgias de órgãos únicos não bilaterais (ex: cirurgia cardíaca), a marcação do sítio cirúrgico é necessária?",
+    text: "Qual alternativa apresenta uma prática insegura na Meta 4?",
     options: [
-      "A marcação pode ser dispensada conforme protocolo institucional para órgãos únicos centrais sem lateralidade.",
-      "É obrigatória e deve ser feita desenhando um coração estilizado diretamente na testa do paciente.",
-      "É obrigatória para fins de faturamento estético, mesmo não havendo risco de erro de lateralidade.",
-      "Deve ser substituída por uma tatuagem temporária com a logo do hospital regulador."
+      "Iniciar o procedimento sem confirmar paciente, local e procedimento.",
+      "Realizar verificação pré-procedimento.",
+      "Confirmar a lateralidade quando houver.",
+      "Fazer time out antes do início do procedimento."
     ],
     correctIndex: 0,
-    feedback: "Procedimentos em linha média ou estruturas únicas não anatômicas bilaterais podem ter a marcação dispensada desde que o procedimento e paciente estejam certos."
+    feedback: "Iniciar sem confirmação aumenta o risco de procedimento errado, local errado ou paciente errado."
   },
   {
     id: "4-12",
-    text: "Qual a conduta recomendada se o paciente recusar categoricamente a realização da marcação na pele por motivos religiosos ou pessoais?",
+    text: "Por que a lateralidade é um ponto de atenção?",
     options: [
-      "Registrar a recusa em prontuário, notificar a equipe e adotar métodos alternativos de dupla checagem visual documentada rígida.",
-      "Realizar a marcação à força enquanto o paciente estiver contido mecanicamente na maca.",
-      "Cancelar a cirurgia permanentemente e dar alta hospitalar imediata por insubordinação do paciente.",
-      "Fazer a marcação em uma folha de papel e colá-la na parede do quarto do paciente."
+      "Porque procedimentos em lado direito ou esquerdo podem ser confundidos se não houver confirmação.",
+      "Porque todo procedimento deve ocorrer obrigatoriamente no lado direito.",
+      "Porque lateralidade substitui o consentimento do paciente.",
+      "Porque só é importante depois da incisão."
     ],
     correctIndex: 0,
-    feedback: "O respeito à autonomia do paciente é fundamental; a recusa deve ser documentada e as barreiras alternativas de segurança reforçadas."
+    feedback: "Confirmar lateralidade evita erros como operar o lado errado."
   },
   {
     id: "4-13",
-    text: "Por que tratar o checklist de cirurgia segura como mera formalidade burocrática ('marcar X no papel' sem falar) anula o efeito da Meta 4?",
+    text: "Quem deve participar da pausa cirúrgica, conforme a atenção indicada no material?",
     options: [
-      "Porque a segurança reside na comunicação ativa e na conferência real em equipe, e não no preenchimento passivo de um papel.",
-      "Porque o papel do checklist consome recursos de celulose que poluem o meio ambiente institucional.",
-      "Porque o preenchimento incorreto gera multas automáticas aplicadas pelos conselhos de medicina.",
-      "Porque os computadores do bloco cirúrgico não conseguem ler documentos digitalizados à mão."
+      "A equipe envolvida no procedimento.",
+      "Apenas o paciente, se estiver acordado.",
+      "Somente o profissional da recepção.",
+      "Apenas o acompanhante do paciente."
     ],
     correctIndex: 0,
-    feedback: "A eficácia do checklist depende da cultura de segurança da equipe em validar verbalmente cada item com seriedade clínica."
+    feedback: "A pausa cirúrgica precisa envolver a equipe para que todos confirmem as informações críticas."
   },
   {
     id: "4-14",
-    text: "Antes de iniciar a anestesia, qual checagem específica da Meta 4 deve ser executada?",
+    text: "Qual ação deve ocorrer antes da incisão?",
     options: [
-      "Verificação de segurança dos equipamentos de anestesia, medicamentos, oxigênio e confirmação de dados do paciente.",
-      "Apenas conferir se o paciente possui plano de saúde ativo com cobertura para anestésicos caros.",
-      "Perguntar ao paciente se ele prefere acordar imediatamente ou dormir por várias horas após o procedimento.",
-      "Nenhuma checagem é feita antes da anestesia, apenas após a intubação orotraqueal bem-sucedida."
+      "Realizar a pausa cirúrgica/time out.",
+      "Encerrar o checklist para fazer depois.",
+      "Liberar a equipe sem confirmar exames.",
+      "Confirmar apenas o número da sala."
     ],
     correctIndex: 0,
-    feedback: "A segurança anestésica é um pilar da Meta 4 que previne falhas de via aérea e trocas de drogas indutoras críticas."
+    feedback: "A pausa cirúrgica ocorre antes da incisão ou início do procedimento."
   },
   {
     id: "4-15",
-    text: "O que caracteriza a etapa do 'Sign-out' (saída) no protocolo de cirurgia segura?",
+    text: "Qual item faz parte do checklist rápido da Meta 4?",
     options: [
-      "Uma revisão realizada com a equipe antes do paciente sair da sala cirúrgica, checando contagens, amostras e intercorrências.",
-      "A assinatura do termo de quitação de débitos financeiros na recepção do bloco operatório.",
-      "O momento em que o cirurgião principal se desparamenta e retira as luvas cirúrgicas.",
-      "A entrega do relatório cirúrgico impresso diretamente nas mãos dos familiares na sala de espera."
+      "O procedimento, paciente e local foram confirmados?",
+      "A comunicação foi feita sem registro?",
+      "As luvas substituíram a higiene das mãos?",
+      "O paciente acumulou moedas suficientes?"
     ],
     correctIndex: 0,
-    feedback: "O Sign-out valida se as amostras de biópsia foram identificadas corretamente, se os materiais estão completos e quais os focos na recuperação pós-anestésica."
+    feedback: "O checklist da Meta 4 reforça verificação prévia, marcação quando aplicável e pausa cirúrgica."
   },
   {
     id: "4-16",
-    text: "Quem tem a autoridade para interromper o fluxo de uma cirurgia caso perceba um erro de lateralidade antes da incisão?",
+    text: "Qual documento ou autorização deve ser confirmado antes do procedimento, conforme o material?",
     options: [
-      "Qualquer membro da equipe assistencial presente na sala cirúrgica, independente do cargo ou hierarquia profissional.",
-      "Exclusivamente o cirurgião-chefe titular que possui o maior tempo de formação médica da equipe.",
-      "Apenas o diretor técnico do hospital caso ele esteja visitando o bloco cirúrgico naquele momento.",
-      "O enfermeiro supervisor administrativo do hospital por meio de uma ordem por escrito via sistema."
+      "Consentimento.",
+      "Cupom de alimentação.",
+      "Comprovante de estacionamento.",
+      "Escala de visitas."
     ],
     correctIndex: 0,
-    feedback: "A cultura de segurança confere 'autoridade de parada' a qualquer colaborador para proteger a vida do paciente contra erros catastróficos iminentes."
+    feedback: "O material inclui o consentimento entre os itens a serem confirmados antes do procedimento."
   },
   {
     id: "4-17",
-    text: "Ao realizar a marcação do sítio cirúrgico em lesões de pele múltiplas (ex: retirada de vários sinais), qual a conduta?",
+    text: "Por que confirmar exames antes do procedimento é importante?",
     options: [
-      "Demarcar individualmente cada uma das lesões propostas para exrese conforme planejado na consulta prévia.",
-      "Marcar apenas a maior lesão e deixar que o cirurgião lembre-se das demais visualmente.",
-      "Desenhar um círculo gigante englobando todo o membro do paciente para economizar tempo.",
-      "Dispensar a marcação de todas as lesões e guiar-se apenas pela descrição verbal do acompanhante."
+      "Porque exames necessários podem orientar segurança, riscos e preparo do ato cirúrgico ou procedimento.",
+      "Porque exames substituem a identificação do paciente.",
+      "Porque exames só servem para arquivo administrativo.",
+      "Porque exames eliminam a necessidade de equipe completa."
     ],
     correctIndex: 0,
-    feedback: "Lesões múltiplas exigem marcações específicas e pontuais para garantir que nenhuma estrutura patológica planejada seja esquecida ou negligenciada."
+    feedback: "A disponibilidade dos exames é parte da preparação segura do procedimento."
   },
   {
     id: "4-18",
-    text: "O que fazer se os exames de imagem (ex: radiografia) do paciente estiverem sem identificação clara na sala cirúrgica?",
+    text: "Qual exemplo representa aplicação correta da Meta 4?",
     options: [
-      "Os exames não devem ser utilizados para guiar a lateralidade da cirurgia até a confirmação inequívoca de sua propriedade.",
-      "O cirurgião deve olhar contra a luz e tentar adivinhar se as estruturas anatômicas combinam com o paciente.",
-      "Utilizar o exame normalmente caso a secretária do consultório garanta por telefone que o exame é o correto.",
-      "Suspender a lavagem cirúrgica das mãos e cancelar a cirurgia sem buscar novas confirmações."
+      "Antes do procedimento, a equipe confirma paciente, procedimento, local, lateralidade e materiais necessários.",
+      "A equipe inicia o procedimento e confirma o lado se surgir dúvida.",
+      "O paciente é chamado pelo leito e levado diretamente à sala.",
+      "A marcação do local é ignorada porque o procedimento é comum."
     ],
     correctIndex: 0,
-    feedback: "Exames sem identificação clara geram erros de lateralidade reflexos, operando-se o lado errado baseando-se no exame de outra pessoa."
+    feedback: "A Meta 4 exige confirmação prévia e participação da equipe para reduzir risco de erro."
   },
   {
     id: "4-19",
-    text: "Em procedimentos oftalmológicos (ex: cirurgia de catarata), onde deve ser feita a marcação do local cirúrgico?",
+    text: "Qual risco a Meta 4 busca reduzir?",
     options: [
-      "Na região cutânea supraciliar (acima da sobrancelha) correspondente ao olho correto a ser operado.",
-      "Diretamente sobre a córnea do paciente utilizando uma caneta hidrográfica permanente comum.",
-      "No braço ou na perna do paciente correspondente ao lado do olho afetado pela doença.",
-      "Apenas na ficha de papel do prontuário, sendo proibido fazer qualquer marca física na face do indivíduo."
+      "Realização de procedimento no paciente errado, local errado ou procedimento errado.",
+      "Uso de luvas durante o procedimento.",
+      "Registro claro no prontuário.",
+      "Orientação do paciente sobre queda."
     ],
     correctIndex: 0,
-    feedback: "A marcação na pele acima da sobrancelha serve de guia visual direto para o cirurgião posicionado na cabeceira após a colocação dos campos estéreis."
+    feedback: "A Meta 4 existe para evitar eventos como paciente errado, procedimento errado e local errado."
   },
   {
     id: "4-20",
-    text: "Qual o impacto do cumprimento estrito da Meta 4 na redução de processos judiciais de erro médico?",
+    text: "Qual é a melhor síntese da Meta 4?",
     options: [
-      "Reduz drasticamente a ocorrência de eventos adversos graves (Never Events), eliminando as principais causas de litígios cirúrgicos.",
-      "Apenas diminui o valor das custas processuais sem alterar o número de processos abertos ao ano.",
-      "Garante imunidade jurídica automática vitalícia para todos os cirurgiões que assinam o checklist.",
-      "Não possui impacto legal, pois os juízes não reconhecem checklists hospitalares como documentos válidos."
+      "Confirmar antes de iniciar: paciente certo, procedimento certo e local certo.",
+      "Conferir depois de iniciar para não atrasar o fluxo.",
+      "Usar apenas a memória da equipe para identificar o procedimento.",
+      "Ignorar lateralidade quando o paciente já conhece a cirurgia."
     ],
     correctIndex: 0,
-    feedback: "A erradicação de erros de local, procedimento ou paciente errados elimina os cenários mais graves de negligência e imperícia institucional."
+    feedback: "A essência da Meta 4 é assegurar paciente, procedimento e local corretos antes do início."
   }
 ];

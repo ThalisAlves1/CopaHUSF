@@ -3,242 +3,242 @@ import { Question } from '../questions-type';
 export const META3_QUESTIONS: Question[] = [
   {
     id: "3-1",
-    text: "O que define os medicamentos de alta vigilância (MAV) conforme a Meta 3?",
+    text: "Qual é o objetivo principal da Meta 3 no material de estudo?",
     options: [
-      "Fármacos que possuem risco elevado de causar danos graves ou fatais aos pacientes caso ocorra um erro na sua utilização.",
-      "Medicamentos que exigem vigilância armada contínua no estoque central por serem caros.",
-      "Substâncias que perdem o efeito terapêutico rapidamente quando expostas à luz solar.",
-      "Medicamentos que provocam reações alérgicas leves na maioria dos indivíduos."
+      "Reduzir o risco de erro com medicamentos que podem causar danos graves quando usados de forma incorreta.",
+      "Aumentar a quantidade de medicamentos disponíveis nos setores para agilizar a rotina.",
+      "Substituir a conferência da prescrição pela experiência do profissional.",
+      "Evitar que o paciente saiba quais medicamentos está recebendo."
     ],
     correctIndex: 0,
-    feedback: "Os MAVs (ou medicamentos potencialmente perigosos) exigem barreiras extras porque as consequências de seus erros são devastadoras."
+    feedback: "A Meta 3 busca reduzir erros com medicamentos de alta vigilância, pois eles podem causar danos graves se usados incorretamente."
   },
   {
     id: "3-2",
-    text: "O que consiste o processo de 'dupla checagem independente' na administração de MAVs?",
+    text: "Segundo o material, o que são medicamentos de alta vigilância?",
     options: [
-      "Dois profissionais conferem a prescrição e o preparo de forma separada e sequencial, sem induzir o resultado do outro.",
-      "O mesmo profissional lê a receita duas vezes seguidas antes de aplicar a injeção.",
-      "O profissional de saúde confere o dados junto com o paciente e depois com o maqueiro.",
-      "Deixar o medicamento na bancada para que o médico valide visualmente quando passar pelo setor."
+      "Medicamentos que exigem atenção especial porque, em caso de erro, podem gerar consequências graves.",
+      "Medicamentos que podem ser administrados sem conferência por serem de uso comum.",
+      "Medicamentos que precisam apenas de armazenamento em temperatura ambiente.",
+      "Medicamentos que não oferecem risco quando usados em doses diferentes da prescrição."
     ],
     correctIndex: 0,
-    feedback: "A independência no processo de checagem garante que se o primeiro profissional cometer um erro de cálculo ou leitura, o segundo possa detectar de forma isenta."
+    feedback: "O material explica que medicamentos de alta vigilância exigem atenção especial porque erros podem gerar consequências graves."
   },
   {
     id: "3-3",
-    text: "Qual a prática recomendada para evitar a troca de medicamentos com nomes ou embalagens parecidas (Look-Alike / Sound-Alike)?",
+    text: "A segurança dos medicamentos de alta vigilância envolve quais etapas?",
     options: [
-      "Uso de etiquetas coloridas diferenciadas, separação física no estoque e escrita com letras maiúsculas em partes críticas do nome.",
-      "Misturar todos os frascos em uma única caixa para economizar espaço físico nas prateleiras.",
-      "Armazenar os medicamentos em ordem estritamente cronológica de validade em gavetas fechadas.",
-      "Substituir todos os rótulos de fábrica por etiquetas manuscritas a lápis pela equipe."
+      "Prescrição, dispensação, armazenamento, preparo, identificação, administração e monitoramento.",
+      "Apenas a compra, a entrega ao setor e o descarte da embalagem.",
+      "Somente a administração no paciente, sem considerar preparo e armazenamento.",
+      "Somente a conferência feita pela farmácia antes da dispensação."
     ],
     correctIndex: 0,
-    feedback: "A diferenciação visual (como a técnica de Tall Man Lettering, ex: epeDRINA vs epiNEFRINA) e barreiras físicas impedem trocas automáticas de ampolas semelhantes."
+    feedback: "A segurança deve estar presente em todas as etapas: prescrição, dispensação, armazenamento, preparo, identificação, administração e monitoramento."
   },
   {
     id: "3-4",
-    text: "Qual destes exemplos faz parte do grupo de medicamentos de alta vigilância citado no material?",
+    text: "Qual prática está correta em relação à identificação de medicamentos de alta vigilância?",
     options: [
-      "Insulinas, anticoagulantes e eletrólitos concentrados.",
-      "Dipirona sódica, soro fisiológico 0,9% e xaropes comuns.",
-      "Cremes dermatológicos hidratantes e colírios lubrificantes de rotina.",
-      "Vitamina C efervescente e pastilhas para a garganta de baixa concentração."
+      "Identificá-los conforme a padronização institucional.",
+      "Retirar etiquetas de alerta para evitar confusão visual.",
+      "Guardar todos sem diferenciação, junto com medicamentos comuns.",
+      "Identificar somente depois da administração ao paciente."
     ],
     correctIndex: 0,
-    feedback: "Insulinas, anticoagulantes e eletrólitos concentrados (como cloreto de potássio 19.1%) são MAVs clássicos devido ao alto potencial de letalidade em dosagens incorretas."
+    feedback: "O material orienta identificar os medicamentos de alta vigilância de acordo com a padronização institucional."
   },
   {
     id: "3-5",
-    text: "Qual o perigo associado ao armazenamento inadequado de eletrólitos concentrados nas enfermarias?",
+    text: "O que deve ser feito com medicamentos que possuem nomes ou embalagens parecidas?",
     options: [
-      "A administração acidental de ampolas concentradas por via endovenosa direta, causando parada cardíaca fatal.",
-      "A evaporação rápida do líquido de dentro das ampolas de plástico lacradas.",
-      "O aumento do risco de contaminação bacteriana por exposição ao oxigênio do ambiente.",
-      "A perda de validade do produto antes do prazo estipulado pelo fabricante."
+      "Separar e armazenar adequadamente para reduzir o risco de troca.",
+      "Misturar no mesmo local para facilitar a retirada rápida.",
+      "Guardar sem identificação, desde que estejam dentro da validade.",
+      "Deixar sob responsabilidade exclusiva do paciente."
     ],
     correctIndex: 0,
-    feedback: "Eletrólitos concentrados nunca devem ser mantidos em estoques livres de enfermarias comuns sem restrição de acesso e identificação clara de perigo."
+    feedback: "Medicamentos com nomes ou embalagens parecidas devem ser separados e armazenados adequadamente para evitar trocas."
   },
   {
     id: "3-6",
-    text: "Antes de infundir uma solução de quimioterapia, qual o papel do monitoramento na Meta 3?",
+    text: "Antes da administração de um medicamento de alta vigilância, o que deve ser conferido?",
     options: [
-      "Verificar continuamente os sinais vitais, o fluxo da infusão e atentar para sinais de toxicidade ou reações adversas.",
-      "Apenas checar o funcionamento mecânico da bomba de infusão uma vez a cada 12 horas.",
-      "Garantir que o paciente permaneça em jejum absoluto durante toda a sessão terapêutica.",
-      "Delegar o acompanhamento clínico integral do paciente aos familiares acompanhantes."
+      "Prescrição, dose, via, horário, diluição e paciente.",
+      "Apenas o nome comercial do medicamento.",
+      "Somente a cor da embalagem e o setor de origem.",
+      "Apenas se o paciente está acordado no momento."
     ],
     correctIndex: 0,
-    feedback: "O monitoramento clínico pós-administração é parte integrante da segurança de medicamentos perigosos, mitigando danos rapidamente."
+    feedback: "A conferência deve incluir prescrição, dose, via, horário, diluição e paciente antes da administração."
   },
   {
     id: "3-7",
-    text: "O que deve ser verificado na etapa de prescrição de um medicamento de alta vigilância?",
+    text: "Quando a dupla checagem independente deve ser realizada?",
     options: [
-      "Se a dose, via, diluição e velocidade de infusão estão descritas de forma clara, sem rasuras ou abreviações perigosas.",
-      "Se o medicamento foi fabricado por um laboratório nacional ou multinacional parceiro.",
-      "Apenas a assinatura digital do médico, dispensando a leitura do corpo do texto prescrito.",
-      "Se o valor da medicação está dentro do orçamento mensal pré-estabelecido pelo paciente."
+      "Quando o protocolo institucional exigir.",
+      "Somente quando o paciente solicitar.",
+      "Apenas quando houver sobra de profissionais no setor.",
+      "Nunca, pois uma única conferência sempre é suficiente."
     ],
     correctIndex: 0,
-    feedback: "A clareza na prescrição elimina a necessidade de suposições pela equipe de enfermagem e farmácia no momento do preparo."
+    feedback: "O material orienta realizar dupla checagem independente quando o protocolo institucional exigir."
   },
   {
     id: "3-8",
-    text: "Por que a insulina exige dupla checagem obrigatória antes da aplicação?",
+    text: "Qual é uma atitude correta após administrar medicamentos de alta vigilância?",
     options: [
-      "Porque pequenos erros de dosagem (em unidades) podem causar hipoglicemia severa, coma ou óbito do paciente.",
-      "Porque a insulina pode perder o efeito caso seja administrada por profissionais diferentes.",
-      "Porque o frasco de insulina exige manuseio com luvas estéreis cirúrgicas de alta espessura.",
-      "Porque o descarte da seringa usada precisa ser homologado por dois supervisores."
+      "Monitorar efeitos esperados, sinais de toxicidade e reações adversas.",
+      "Encerrar o cuidado sem observar o paciente.",
+      "Aguardar somente o próximo plantão para avaliar qualquer reação.",
+      "Registrar apenas se houver reclamação formal do paciente."
     ],
     correctIndex: 0,
-    feedback: "A insulina possui uma janela terapêutica estreita, e erros de leitura de escala de seringas são frequentes e perigosos."
+    feedback: "O monitoramento é parte da segurança, incluindo efeitos esperados, sinais de toxicidade e reações adversas."
   },
   {
     id: "3-9",
-    text: "Qual a conduta correta na farmácia hospitalar ao dispensar um medicamento potencialmente perigoso?",
+    text: "No exemplo do material, antes de administrar insulina, o que a equipe deve conferir?",
     options: [
-      "Identificar o item com etiquetas de alerta coloridas (ex: vermelhas ou laranjas) bem visíveis no frasco.",
-      "Dispensar o medicamento misturado com os itens de uso comum sem nenhuma marcação especial.",
-      "Exigir que o próprio paciente compareça à farmácia para retirar o insumo injetável.",
-      "Alterar a dosagem prescrita caso o estoque esteja com poucas unidades da apresentação correta."
+      "Prescrição, dose, tipo de insulina, paciente e horário.",
+      "Somente o nome do paciente e o número do leito.",
+      "Apenas se a insulina está gelada.",
+      "Somente a autorização verbal de outro colega."
     ],
     correctIndex: 0,
-    feedback: "A identificação visual na dispensação alerta o profissional que irá preparar o fármaco na beira do leito sobre a necessidade de atenção redobrada."
+    feedback: "O exemplo do material cita a conferência da prescrição, dose, tipo de insulina, paciente e horário."
   },
   {
     id: "3-10",
-    text: "O que caracteriza um erro de via de administração na Meta 3?",
+    text: "Quando indicada, qual rotina deve ser seguida antes da administração de insulina?",
     options: [
-      "Injetar Cloreto de Potássio concentrado por via endovenosa direta sem a devida diluição prévia em soro.",
-      "Administrar um comprimido por via oral com água ao invés de suco de frutas cítricas.",
-      "Aplicar uma injeção subcutânea no abdômen ao invés de aplicar na região deltoide do braço.",
-      "Realizar a troca do horário da medicação das 22h para as 23h por atraso do setor."
+      "A rotina de dupla checagem.",
+      "A rotina de dispensar conferência para ganhar tempo.",
+      "A rotina de perguntar somente ao acompanhante.",
+      "A rotina de administrar primeiro e registrar depois se necessário."
     ],
     correctIndex: 0,
-    feedback: "A infusão de eletrólitos concentrados sem diluição adequada destrói o potencial de membrana celular e causa eventos cardíacos fatais imediatos."
+    feedback: "O material afirma que, quando indicada, deve-se seguir a rotina de dupla checagem."
   },
   {
     id: "3-11",
-    text: "Por que os opioides (como a morfina) entram na classificação da Meta 3?",
+    text: "Qual grupo exige atenção especial segundo o campo de atenção da Meta 3?",
     options: [
-      "Porque em doses excessivas ou taxas de infusão rápidas provocam depressão respiratória grave e parada respiratória.",
-      "Porque causam reações alérgicas cutâneas severas em 100% dos indivíduos expostos.",
-      "Porque perdem a estabilidade molecular quando diluídos em soro glicosado 5%.",
-      "Porque são medicamentos de uso restrito ao ambiente do bloco cirúrgico apenas."
+      "Medicamentos com nomes parecidos e concentrações diferentes.",
+      "Medicamentos sem prescrição que o paciente trouxe de casa.",
+      "Apenas medicamentos de uso tópico e sem risco sistêmico.",
+      "Somente medicamentos administrados por via oral."
     ],
     correctIndex: 0,
-    feedback: "A monitorização do padrão respiratório e do nível de consciência é mandatória ao usar opioides potentes devido ao risco de apneia."
+    feedback: "O material destaca atenção especial para medicamentos com nomes parecidos e concentrações diferentes."
   },
   {
     id: "3-12",
-    text: "Em relação aos anticoagulantes injetáveis (como a heparina), qual o principal risco de um erro de superdosagem?",
+    text: "Qual alternativa apresenta exemplos citados no material como medicamentos que exigem atenção especial?",
     options: [
-      "Provocar hemorragias graves e sangramentos internos incontroláveis que ameaçam a vida.",
-      "Causar trombose venosa profunda imediata generalizada em todos os membros.",
-      "Elevar abruptamente a pressão arterial sistêmica para níveis de crise hipotensiva.",
-      "Reduzir a taxa de filtração glomerular renal de forma permanente em poucas horas."
+      "Eletrólitos concentrados, anticoagulantes, insulinas, sedativos e opioides.",
+      "Vitaminas comuns, hidratantes, água filtrada e alimentos leves.",
+      "Curativos simples, álcool em gel e materiais de limpeza.",
+      "Documentos administrativos e fichas de atendimento."
     ],
     correctIndex: 0,
-    feedback: "Anticoagulantes alteram os fatores de coagulação e a superdosagem rompe a homeostasia hemorrágica, expondo o paciente a choques hipovolêmicos por sangramento."
+    feedback: "O material cita eletrólitos concentrados, anticoagulantes, insulinas, sedativos e opioides como pontos de atenção especial."
   },
   {
     id: "3-13",
-    text: "O que a equipe deve fazer ao se deparar com uma ampola de MAV cujo rótulo está parcialmente apagado?",
+    text: "Por que conferir a diluição é importante antes de administrar medicamento de alta vigilância?",
     options: [
-      "Descartar a ampola imediatamente no coletor de perfurocortantes/químicos e solicitar outra legível à farmácia.",
-      "Utilizar a ampola baseando-se no formato físico do frasco e na cor do líquido interno.",
-      "Cheirar o conteúdo da ampola após a abertura para tentar identificar a substância química.",
-      "Perguntar aos colegas de setor se alguém se lembra de qual medicação estava naquela gaveta."
+      "Porque a diluição incorreta pode comprometer a segurança da administração.",
+      "Porque a diluição serve apenas para mudar a cor do medicamento.",
+      "Porque todo medicamento deve ser administrado sem diluir.",
+      "Porque a diluição substitui a necessidade de conferir o paciente."
     ],
     correctIndex: 0,
-    feedback: "Rótulos ilegíveis invalidam o uso seguro de qualquer substância, sendo o descarte e a substituição as únicas condutas toleradas."
+    feedback: "A diluição faz parte da conferência segura citada no material e deve ser verificada antes da administração."
   },
   {
     id: "3-14",
-    text: "Qual a recomendação para o preparo de medicamentos de alta vigilância em ambientes barulhentos ou com muitas interrupções?",
+    text: "Qual conduta está de acordo com a Meta 3 ao preparar um medicamento de alta vigilância?",
     options: [
-      "Deve-se buscar um ambiente calmo e isolado, focando totalmente no preparo sem distrações para evitar erros de cálculo.",
-      "O profissional deve acelerar o preparo para sair logo daquele ambiente estressante.",
-      "Deve-se delegar o preparo de múltiplos MAVs simultaneamente para otimizar o tempo coletivo.",
-      "Não há restrições, pois os profissionais de saúde estão acostumados a trabalhar sob pressão intensa."
+      "Conferir cuidadosamente os dados necessários antes da administração.",
+      "Preparar com pressa para reduzir o tempo de atendimento.",
+      "Usar a memória como principal fonte de confirmação.",
+      "Ignorar a prescrição quando a medicação é conhecida pela equipe."
     ],
     correctIndex: 0,
-    feedback: "As distrações durante o preparo de MAVs sabotam processos mentais de cálculo de doses e diluições, gerando eventos adversos graves."
+    feedback: "A Meta 3 reforça a conferência cuidadosa da prescrição, dose, via, horário, diluição e paciente."
   },
   {
     id: "3-15",
-    text: "Ao programar uma bomba de infusão com um sedativo de alta vigilância, qual cuidado técnico é exigido?",
+    text: "Qual erro a separação adequada de medicamentos com embalagens parecidas ajuda a prevenir?",
     options: [
-      "Confirmar a taxa de infusão, a concentração da solução e o volume total com dupla checagem dos parâmetros na tela da bomba.",
-      "Ligar o equipamento na tomada sem conferir a velocidade de gotejamento programada anteriormente.",
-      "Dispensar o uso da bomba e realizar a infusão por gravidade simples em gotejamento livre.",
-      "Programar a bomba utilizando valores aproximados arredondados para facilitar a passagem de plantão."
+      "A troca de medicamentos durante armazenamento, preparo ou administração.",
+      "A falta de limpeza do leito do paciente.",
+      "O atraso na alta administrativa.",
+      "A duplicidade de cadastro do acompanhante."
     ],
     correctIndex: 0,
-    feedback: "Erros de digitação de pontos decimais em bombas de infusão (ex: infundir 50 ml/h em vez de 5,0 ml/h) causam superdosagens massivas imediatas."
+    feedback: "Separar medicamentos com nomes ou embalagens parecidas reduz o risco de troca."
   },
   {
     id: "3-16",
-    text: "Qual a importância de manter um inventário atualizado e restrito dos MAVs no carrinho de emergência?",
+    text: "Qual das opções representa uma barreira de segurança prevista na Meta 3?",
     options: [
-      "Garantir que apenas as quantidades estritamente necessárias estejam disponíveis, evitando desvios ou captações errôneas no desespero do atendimento.",
-      "Atender às exigências de estética e simetria visual do layout interno das gavetas de emergência.",
-      "Reduzir o peso físico do carrinho para facilitar o deslocamento rápido pelos corredores hospitalares.",
-      "Permitir que a equipe de auditoria faça conferências financeiras diárias automáticas."
+      "Dupla checagem independente quando exigida pelo protocolo institucional.",
+      "Administração sem registro para agilizar o atendimento.",
+      "Retirada de identificação dos medicamentos para economizar etiquetas.",
+      "Uso do número do leito como única confirmação antes da medicação."
     ],
     correctIndex: 0,
-    feedback: "O excesso de ampolas e a desorganização no carrinho de parada aumentam a chance de troca de substâncias durante uma reanimação cardiopulmonar."
+    feedback: "A dupla checagem independente, quando prevista em protocolo, funciona como barreira de segurança."
   },
   {
     id: "3-17",
-    text: "O que significa a prática de 'conciliação medicamentosa' aliada à Meta 3 na admissão hospitalar?",
+    text: "Qual é a melhor justificativa para monitorar sinais de toxicidade?",
     options: [
-      "Comparar os medicamentos de alta vigilância que o paciente já usava em casa com as novas prescrições hospitalares para evitar omissões ou duplicidades.",
-      "Negociar com o paciente a substituição de medicamentos caros por genéricos mais baratos disponíveis no SUS.",
-      "Suspender todos os medicamentos de uso contínuo do paciente durante os primeiros 10 dias de internação.",
-      "Pedir para o paciente assinar uma lista de medicamentos que ele promete não tomar sem autorização."
+      "Detectar precocemente possíveis danos relacionados ao medicamento.",
+      "Substituir a necessidade de prescrição médica.",
+      "Confirmar apenas se o paciente gostou do atendimento.",
+      "Evitar que a farmácia precise identificar o medicamento."
     ],
     correctIndex: 0,
-    feedback: "A conciliação protege o paciente contra a interrupção abrupta ou a sobreposição perigosa de tratamentos ambulatoriais com os hospitalares."
+    feedback: "Monitorar sinais de toxicidade ajuda a identificar rapidamente possíveis danos e reações adversas."
   },
   {
     id: "3-18",
-    text: "Se o protocolo institucional exige dupla checagem para MAVs, mas o setor está com falta de pessoal em um momento crítico, o que deve ser feito?",
+    text: "Em relação ao paciente, qual conferência deve ocorrer antes da administração?",
     options: [
-      "A dupla checagem deve ser mantida, solicitando o apoio temporário de um profissional de um setor vizinho ou supervisor para validar a medicação.",
-      "A checagem pode ser totalmente dispensada, registrando em prontuário a falta de funcionários como justificativa legal.",
-      "O profissional deve aplicar a medicação e pedir para um colega assinar a checagem mais tarde sem ter visto o preparo.",
-      "O tratamento deve ser suspenso indefinidamente até a contratação de novos colaboradores permanentes."
+      "Confirmar que o medicamento será administrado ao paciente correto.",
+      "Confirmar apenas se o paciente está no quarto esperado.",
+      "Confirmar somente se o acompanhante reconhece a embalagem.",
+      "Confirmar apenas se o paciente já tomou medicamento parecido antes."
     ],
     correctIndex: 0,
-    feedback: "A escassez de pessoal aumenta o risco intrínseco de erro, tornando barreiras de segurança como a dupla checagem ainda mais necessárias e inegociáveis."
+    feedback: "O paciente deve ser conferido antes da administração, junto com prescrição, dose, via, horário e diluição."
   },
   {
     id: "3-19",
-    text: "Qual a conduta esperada caso ocorra uma suspeita de reação adversa grave a um medicamento de alta vigilância?",
+    text: "Qual alternativa NÃO está de acordo com o material da Meta 3?",
     options: [
-      "Interromper a infusão imediatamente, avaliar o estado clínico do paciente, notificar o médico responsável e registrar o evento.",
-      "Aumentar a velocidade da infusão para terminar o frasco rapidamente e eliminar o problema.",
-      "Aguardar o término do plantão de 12 horas para avisar a equipe médica de forma discreta.",
-      "Esconder a ocorrência no prontuário para evitar auditorias ou punições administrativas à equipe."
+      "Usar medicamentos com nomes parecidos no mesmo local sem separação adequada.",
+      "Identificar medicamentos de alta vigilância conforme padronização institucional.",
+      "Conferir dose, via, horário, diluição e paciente antes da administração.",
+      "Monitorar efeitos esperados, toxicidade e reações adversas."
     ],
     correctIndex: 0,
-    feedback: "A detecção precoce e a interrupção imediata da exposição ao fármaco limitam a gravidade do dano e protegem a integridade do paciente."
+    feedback: "Medicamentos com nomes ou embalagens parecidas devem ser separados e armazenados adequadamente para evitar trocas."
   },
   {
     id: "3-20",
-    text: "Qual o papel dos direitos ou protocolos clínicos gerenciados no uso de anticoagulantes na Meta 3?",
+    text: "Qual é a ideia central da Meta 3 para a equipe assistencial?",
     options: [
-      "Padronizar exames de controle (como o TAP/RNI ou TTPA) e definir tabelas de doses exatas para guiar condutas seguras.",
-      "Limitar o acesso a exames laboratoriais para economizar recursos do teto financeiro do hospital.",
-      "Garantir que todos os pacientes internados recebam a mesma dosagem idêntica de heparina, independente do peso corporal.",
-      "Transferir o monitoramento dos sangramentos inteiramente para laboratórios terceirizados externos."
+      "Criar barreiras de segurança em todas as etapas do uso de medicamentos de alta vigilância.",
+      "Concentrar a responsabilidade apenas na farmácia hospitalar.",
+      "Administrar medicamentos de alta vigilância sem necessidade de monitoramento.",
+      "Priorizar velocidade em vez de conferência quando o setor estiver cheio."
     ],
     correctIndex: 0,
-    feedback: "Protocolos baseados em evidências associados a exames de controle frequentes guiam o ajuste fino de doses, evitando tanto a subdosagem (trombose) quanto a superdosagem (sangramento)."
+    feedback: "A Meta 3 envolve segurança em várias etapas, criando barreiras contra erros com medicamentos de alta vigilância."
   }
 ];

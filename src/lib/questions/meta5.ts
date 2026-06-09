@@ -3,242 +3,242 @@ import { Question } from '../questions-type';
 export const META5_QUESTIONS: Question[] = [
   {
     id: "5-1",
-    text: "Quais são os '5 Momentos para a Higienização das Mãos' preconizados pela OMS?",
+    text: "Qual é o objetivo principal da Meta 5 no material de estudo?",
     options: [
-      "Antes do contato, antes de procedimento limpo/asséptico, após risco de fluidos, após contato com o paciente e após tocar superfícies próximas.",
-      "Ao chegar ao hospital, antes do almoço, após ir ao banheiro, após tossir e ao ir embora para casa.",
-      "Antes de calçar luvas estéreis, após preencher prontuários, antes de cirurgias, após reuniões e após visitas.",
-      "Sempre que as mãos estiverem visivelmente pretas de poeira ou com odores químicos fortes."
+      "Diminuir a transmissão de microrganismos e prevenir infecções relacionadas à assistência à saúde.",
+      "Reduzir o uso de equipamentos de proteção individual em todos os setores.",
+      "Substituir a higienização das mãos pelo uso contínuo de luvas.",
+      "Evitar que pacientes sejam orientados sobre prevenção de infecção."
     ],
     correctIndex: 0,
-    feedback: "Esses 5 momentos mapeiam as zonas de contato com o paciente e seu entorno para interromper a transmissão cruzada de microrganismos."
+    feedback: "A Meta 5 busca reduzir infecções associadas ao cuidado por meio de medidas como higienização das mãos e uso adequado de EPI."
   },
   {
     id: "5-2",
-    text: "O uso de luvas descartáveis dispensa a necessidade de higienização das mãos?",
+    text: "Segundo o material, qual é uma das medidas mais simples, eficazes e importantes para prevenir infecções?",
     options: [
-      "Não. As luvas reduzem o contato, mas não eliminam a obrigação de higienizar as mãos antes de calçar e após retirá-las.",
-      "Sim, as luvas criam uma barreira impermeável absoluta que destrói 100% de bactérias e vírus por contato.",
-      "Dispensa apenas se as luvas utilizadas forem estéreis cirúrgicas de alta espessura protetora.",
-      "Sim, desde que o profissional troque de luvas a cada 4 horas contínuas de trabalho no plantão."
+      "Higienização das mãos.",
+      "Uso de relógio para controlar o tempo de atendimento.",
+      "Troca de uniforme apenas no fim do plantão.",
+      "Uso de luvas sem higienizar as mãos."
     ],
     correctIndex: 0,
-    feedback: "Luvas possuem microporos invisíveis e podem sofrer rasgos microscópicos durante o uso; além disso, a remoção pode contaminar as mãos."
+    feedback: "O material destaca a higienização das mãos como uma das medidas mais simples e eficazes para prevenir infecções."
   },
   {
     id: "5-3",
-    text: "Quando é obrigatório lavar as mãos com água e sabonete líquido em vez de usar apenas álcool em gel?",
+    text: "Qual é um impacto das infecções associadas ao cuidado?",
     options: [
-      "Sempre que as mãos estiverem visivelmente sujas ou contaminadas com sangue ou outros fluidos corporais.",
-      "Apenas nos dias em que o termômetro ambiental registrar temperaturas elevadas acima de 30°C.",
-      "Exclusivamente antes de realizar procedimentos cirúrgicos de grande porte em ambiente de UTI.",
-      "Quando o estoque de álcool em gel do hospital estiver dentro do prazo de validade vencido."
+      "Aumentam tempo de internação, complicações, custos e risco de morte.",
+      "Reduzem automaticamente o tempo de internação.",
+      "Eliminam a necessidade de uso de EPI.",
+      "Não interferem na evolução do paciente."
     ],
     correctIndex: 0,
-    feedback: "A sujidade visível exige ação mecânica de lavagem com água e sabão para remoção de detritos e matéria orgânica que o álcool não consegue dissolver."
+    feedback: "Infecções relacionadas à assistência podem trazer complicações importantes e aumentar o risco ao paciente."
   },
   {
     id: "5-4",
-    text: "Qual a técnica correta de fricção antisséptica das mãos com preparação alcoólica quanto ao tempo de duração?",
+    text: "Quando as mãos devem ser higienizadas antes do contato?",
     options: [
-      "Friccionar todas as superfícies das mãos por cerca de 20 a 30 segundos até que sequem completamente por si mesmas.",
-      "Esfregar rapidamente as palmas das mãos por 5 segundos e secar com papel toalha descartável macio.",
-      "Manter as mãos imersas em uma bacia com álcool líquido puro durante 5 minutos contínuos sem esfregar.",
-      "Friccionar as costas das mãos vigorosamente até provocar vermelhidão na pele por calor."
+      "Antes de tocar o paciente.",
+      "Somente depois de sair do setor.",
+      "Apenas quando houver sujeira visível.",
+      "Somente antes de preencher documentos administrativos."
     ],
     correctIndex: 0,
-    feedback: "O tempo de 20 a 30 segundos garante que o antisséptico cubra todas as áreas (palma, dorso, interdígitos, polegar e unhas) e exerça sua ação bactericida."
+    feedback: "Um dos momentos indicados no material é higienizar as mãos antes de tocar o paciente."
   },
   {
     id: "5-5",
-    text: "Por que o adorno zero (proibição de anéis, alianças, pulseiras e relógios) é obrigatório na Meta 5?",
+    text: "Qual momento de higiene das mãos está relacionado a procedimentos limpos ou assépticos?",
     options: [
-      "Porque os adornos acumulam microrganismos sob suas superfícies e impedem a higienização completa da pele.",
-      "Porque os adornos geram reflexos de luz que atrapalham a visão do cirurgião principal na mesa operatória.",
-      "Porque existe o risco de os anéis caírem dentro de feridas abertas ou curativos dos pacientes por acidente.",
-      "Porque os adornos aumentam o risco de furtos ou perdas materiais dentro do ambiente hospitalar de internação."
+      "Antes de realizar procedimento limpo ou asséptico.",
+      "Somente depois da alta do paciente.",
+      "Apenas antes da reunião de equipe.",
+      "Somente no início do turno."
     ],
     correctIndex: 0,
-    feedback: "Anéis e relógios criam nichos ecológicos artificiais onde bactérias e fungos se proliferam e resistem à lavagem ou aplicação de álcool."
+    feedback: "Antes de procedimento limpo ou asséptico, a higienização das mãos ajuda a proteger o paciente contra microrganismos."
   },
   {
     id: "5-6",
-    text: "O que define o Momento 'Após tocar superfícies próximas ao paciente', mesmo sem ter tocado no paciente diretamente?",
+    text: "Após risco de exposição a fluidos corporais, qual é a conduta correta?",
     options: [
-      "Higienizar as mãos após tocar em objetos como a grade do leito, o criado-mudo, o controle do soro ou o lençol do paciente.",
-      "Lavar as mãos apenas ao sair do quarto e tocar na maçaneta externa da porta de saída da ala.",
-      "Limpar as mãos com álcool apenas se o paciente estiver tossindo ou espirrando gotículas visíveis no ar.",
-      "Realizar a higienização caso o colchão do paciente apresente rasgos ou vazamento de espumas internas."
+      "Higienizar as mãos.",
+      "Apenas trocar o avental e seguir para outro atendimento.",
+      "Usar a mesma luva se não houver rasgo visível.",
+      "Registrar a exposição e higienizar apenas no fim do procedimento."
     ],
     correctIndex: 0,
-    feedback: "O entorno do paciente está colonizado pela sua própria microbiota; tocar nessas superfícies e não higienizar as mãos espalha germes para outros locais."
+    feedback: "O material inclui a higienização das mãos após risco de exposição a fluidos corporais."
   },
   {
     id: "5-7",
-    text: "Qual o impacto direto das Infecções Relacionadas à Assistência à Saúde (IRAS) na evolução do paciente?",
+    text: "Depois de tocar o paciente, o que deve ser feito?",
     options: [
-      "Aumentam o tempo de internação, geram complicações clínicas graves, elevam custos hospitalares e o risco de morte.",
-      "Reduzem a necessidade de uso de antibióticos potentes por induzirem imunidade natural protetora crônica.",
-      "Apenas causam desconforto estético na pele sem alterar o tempo total de tratamento ou data de alta.",
-      "Aceleram a cicatrização de feridas operatórias devido ao estímulo inflamatório celular local provocado."
+      "Higienizar as mãos.",
+      "Aguardar o próximo atendimento para higienizar.",
+      "Higienizar apenas se o paciente tiver diagnóstico infeccioso.",
+      "Colocar outra luva por cima da anterior."
     ],
     correctIndex: 0,
-    feedback: "As IRAS são eventos adversos graves que comprometem o desfecho clínico do paciente e oneram gravemente os sistemas de saúde."
+    feedback: "Após tocar o paciente, as mãos devem ser higienizadas para evitar transmissão de microrganismos."
   },
   {
     id: "5-8",
-    text: "O que é uma 'técnica asséptica' conforme citado nas práticas da Meta 5?",
+    text: "Qual superfície também exige atenção na higienização das mãos?",
     options: [
-      "Um conjunto de manobras e cuidados destinados a manter materiais e áreas livres de contaminação microbiana durante procedimentos.",
-      "A lavagem de paredes do quarto com água e sabão comum uma vez a cada turno de internação hospitalar.",
-      "O uso de máscaras de tecido estampadas para o atendimento ambulatorial de pacientes saudáveis.",
-      "A administração de medicamentos por via oral sem o contato direto dos dedos com o comprimido."
+      "Superfícies próximas ao paciente.",
+      "Apenas a porta principal do hospital.",
+      "Somente a tela do computador administrativo.",
+      "Apenas áreas externas ao setor assistencial."
     ],
     correctIndex: 0,
-    feedback: "A técnica asséptica (ex: uso de campos estéreis, pinças e luvas estéreis) previne a introdução acidental de patógenos em sítios estéreis do corpo."
+    feedback: "O material orienta higienizar as mãos após tocar superfícies próximas ao paciente."
   },
   {
     id: "5-9",
-    text: "A respeito do comprimento e uso de unhas pelos profissionais de saúde, qual a recomendação de segurança?",
+    text: "O uso de luvas substitui a higienização das mãos?",
     options: [
-      "Manter as unhas naturais curtas, limpas e sem uso de unhas postiças ou gel, pois estas acumulam germes.",
-      "Unhas postiças longas são permitidas desde que pintadas com esmalte escuro brilhante de alta qualidade.",
-      "Unhas compridas de gel são liberadas caso o profissional use duas camadas de luvas descartáveis comuns.",
-      "As unhas podem ser compridas se forem limpas com escovas de cerdas de aço a cada atendimento assistencial."
+      "Não. Luvas não substituem higienização das mãos.",
+      "Sim, desde que a luva seja nova.",
+      "Sim, quando o atendimento for rápido.",
+      "Sim, se o paciente não estiver isolado."
     ],
     correctIndex: 0,
-    feedback: "Unhas postiças e longas quebram barreiras de luvas e servem de reservatório para patógenos multirresistentes de difícil remoção."
+    feedback: "O material reforça que luvas não substituem a higienização das mãos."
   },
   {
     id: "5-10",
-    text: "Qual a recomendação de higiene das mãos antes de realizar um procedimento limpo ou asséptico (Momento 2)?",
+    text: "Quando as mãos devem ser higienizadas em relação ao uso de luvas, conforme o material?",
     options: [
-      "Higienizar as mãos imediatamente antes do procedimento para proteger o paciente contra a introdução de germes em seu corpo.",
-      "Realizar a lavagem das mãos apenas se o procedimento envolver sangramento abundante de grandes vasos venosos.",
-      "Passar álcool em gel nas mãos cerca de 30 minutos antes do procedimento e manter as mãos nos bolsos.",
-      "Dispensar a higienização caso o material a ser utilizado já venha embalado de fábrica em caixas plásticas."
+      "Antes de calçar e após retirar as luvas, conforme protocolo.",
+      "Somente depois de calçar as luvas.",
+      "Apenas se a luva rasgar durante o cuidado.",
+      "Somente antes de guardar as luvas no bolso."
     ],
     correctIndex: 0,
-    feedback: "A higienização neste momento previne infecções de sítio cirúrgico, infecções de trato urinário e bacteremias por cateter vascular."
+    feedback: "As mãos devem ser higienizadas antes de colocar e após retirar as luvas, de acordo com o protocolo."
   },
   {
     id: "5-11",
-    text: "O que se deve fazer imediatamente após o risco de exposição a fluidos corporais (Momento 3), mesmo usando luvas?",
+    text: "Qual conduta está correta sobre equipamentos de proteção individual?",
     options: [
-      "Retirar as luvas e higienizar as mãos imediatamente para proteger a si mesmo e o ambiente contra contaminações.",
-      "Continuar atendendo outros pacientes e higienizar as mãos apenas ao final do turno diário de trabalho.",
-      "Limpar o lado externo das luvas com álcool em gel e continuar o procedimento com o mesmo par instalado.",
-      "Lavar as luvas com água e sabão sem retirá-las das mãos para economizar insumos plásticos descartáveis."
+      "Usar EPI conforme risco e protocolo.",
+      "Usar EPI apenas quando o paciente solicitar.",
+      "Usar sempre o mesmo EPI em todos os atendimentos.",
+      "Evitar EPI para facilitar o contato com o paciente."
     ],
     correctIndex: 0,
-    feedback: "A higienização imediata pós-exposição a fluidos (sangue, urina, secreções) protege o profissional e quebra o ciclo de transmissão cruzada."
+    feedback: "O uso de EPI deve seguir o risco e o protocolo institucional."
   },
   {
     id: "5-12",
-    text: "Por que a secagem das mãos com papel toalha após a lavagem com água e sabão deve ser feita com suavidade?",
+    text: "Quais dispositivos exigem cuidado para prevenção de infecção, segundo o material?",
     options: [
-      "Para evitar lesões e dermatites na pele, que serve como barreira natural intacta contra invasões microbianas.",
-      "Para não rasgar o papel toalha e evitar o desperdício de insumos sanitários da unidade hospitalar.",
-      "Porque a pele úmida absorve melhor os efeitos do sabonete líquido que permaneceu nos poros cutâneos.",
-      "Apenas por motivos estéticos, garantindo a maciez e hidratação visual das mãos dos colaboradores."
+      "Dispositivos invasivos, curativos, sondas e cateteres.",
+      "Somente cadeiras da recepção.",
+      "Apenas crachás dos profissionais.",
+      "Apenas equipamentos administrativos."
     ],
     correctIndex: 0,
-    feedback: "A pele lesionada por fricção excessiva ou umidade acumulada predispõe a colonização crônica por patógenos e causa dor ao profissional."
+    feedback: "O material cita cuidado com dispositivos invasivos, curativos, sondas, cateteres e ambiente."
   },
   {
     id: "5-13",
-    text: "Qual a orientação sobre o uso de soluções alcoólicas caseiras ou de concentrações inadequadas na assistência à saúde?",
+    text: "No exemplo do material, o que o profissional faz após ajustar a grade do leito e antes de manipular o acesso venoso?",
     options: [
-      "Estão estritamente proibidas; deve-se usar apenas preparações alcoólicas regulamentadas com concentração adequada (geralmente 70%).",
-      "São permitidas desde que apresentem odor agradável de ervas naturais ou perfumes comerciais finos.",
-      "Podem ser utilizadas em enfermarias comuns, reservando o álcool 70% padrão apenas para os blocos cirúrgicos graves.",
-      "São liberadas caso o hospital passe por desabastecimento temporário de água tratada encanada por mais de uma hora."
+      "Higieniza as mãos conforme técnica adequada.",
+      "Coloca uma luva por cima da outra sem higiene das mãos.",
+      "Manipula o acesso venoso primeiro e higieniza depois.",
+      "Apenas registra que tocou na grade do leito."
     ],
     correctIndex: 0,
-    feedback: "A eficácia antimicrobiana depende da concentração correta de álcool e água (álcool 70%) para desnaturar proteínas de patógenos."
+    feedback: "O exemplo mostra que tocar superfícies próximas ao paciente exige higienização antes de manipular o acesso venoso."
   },
   {
     id: "5-14",
-    text: "Em relação ao cuidado com cateteres venosos centrais, como a Meta 5 atua de forma preventiva?",
+    text: "Qual alternativa representa um dos momentos corretos de higienização das mãos?",
     options: [
-      "Exigindo higienização rígida das mãos e uso de barreira estéril máxima durante a inserção e manipulação das conexões.",
-      "Determinando a troca diária compulsória de todo o dispositivo vascular, independente de sinais de infecção local.",
-      "Substituindo o uso de antissépticos de pele por lavagens simples com água destilada fria de ampolas.",
-      "Obrigando o paciente a permanecer com o braço imobilizado por gesso durante toda a permanência do cateter."
+      "Após tocar superfícies próximas ao paciente.",
+      "Apenas ao chegar em casa.",
+      "Somente quando o paciente estiver em isolamento.",
+      "Somente antes de usar o computador."
     ],
     correctIndex: 0,
-    feedback: "A manipulação asséptica de hubs e conexões impede a migração intraluminal de bactérias causadoras de infecções de corrente sanguínea."
+    feedback: "O contato com o entorno do paciente também pode transmitir microrganismos, por isso exige higiene das mãos."
   },
   {
     id: "5-15",
-    text: "Qual o papel da fricção dos polegares e das polpas digitais na técnica padrão de higienização das mãos?",
+    text: "Qual alternativa apresenta prática insegura na Meta 5?",
     options: [
-      "Garantir a limpeza de áreas que frequentemente são esquecidas ou negligenciadas em lavagens rápidas ordinárias.",
-      "Ativar a circulação sanguínea periférica dos dedos para melhorar a sensibilidade tátil do profissional de saúde.",
-      "Remover calosidades e imperfeições estéticas da pele que possam arranhar os pacientes internados.",
-      "Atender às exigências de ergonomia mecânica descritas nos manuais de medicina do trabalho modernos."
+      "Usar luvas como substituição da higienização das mãos.",
+      "Higienizar antes de tocar o paciente.",
+      "Usar EPI conforme risco e protocolo.",
+      "Cuidar adequadamente de sondas, cateteres e curativos."
     ],
     correctIndex: 0,
-    feedback: "Polegares, pontas dos dedos e unhas são as áreas de maior contato e ironicamente as mais negligenciadas em lavagens incompletas."
+    feedback: "Luvas reduzem contato, mas não substituem a higienização das mãos."
   },
   {
     id: "5-16",
-    text: "Como a higienização das mãos impacta a resistência bacteriana a antibióticos dentro dos hospitais?",
+    text: "Qual item faz parte do checklist rápido da Meta 5?",
     options: [
-      "Reduz a disseminação de cepas bacterianas multirresistentes entre pacientes, diminuindo a necessidade de novos antibióticos.",
-      "Torna as bactérias mais sensíveis à ação direta de sabões comuns por destruição de suas paredes celulares secundárias.",
-      "Aumenta a mutação genética de vírus benéficos que destroem as bactérias nocivas do ambiente por competição.",
-      "Não possui correlação com a resistência bacteriana, atuando apenas na remoção de sujidades visíveis estéticas."
+      "As mãos foram higienizadas no momento correto?",
+      "O paciente recebeu moeda após o quiz?",
+      "O local cirúrgico foi marcado com lateralidade?",
+      "A prescrição de insulina foi duplicada?"
     ],
     correctIndex: 0,
-    feedback: "Ao frear a transmissão cruzada de bactérias resistentes (superbactérias), evita-se surtos setoriais que exigiriam antibioticoterapia de reserva de amplo espectro."
+    feedback: "O checklist da Meta 5 reforça higienização antes e após contato, antes de procedimento asséptico e após risco de fluidos."
   },
   {
     id: "5-17",
-    text: "Se um profissional apenas passa o álcool em gel nas palmas das mãos de forma rápida e balança as mãos para secar, o que há de errado?",
+    text: "Qual é a finalidade de manter cuidado com o ambiente próximo ao paciente?",
     options: [
-      "A técnica foi inadequada porque não cobriu todas as superfícies das mãos e o tempo de fricção foi insuficiente para a eficácia.",
-      "O erro foi balançar as mãos, pois o vento acelera a evaporação benéfica do produto antisséptico na pele.",
-      "Não há erro algum, pois o contato inicial do álcool com a palma destrói imediatamente todos os microrganismos existentes.",
-      "O procedimento está correto desde que as mãos estivessem lavadas com sabão em pó previamente no mesmo dia."
+      "Reduzir a transmissão de microrganismos e prevenir infecções.",
+      "Evitar que o paciente peça ajuda para levantar.",
+      "Substituir o uso de EPI em todos os casos.",
+      "Diminuir a necessidade de comunicação entre equipes."
     ],
     correctIndex: 0,
-    feedback: "A eficácia da fricção alcoólica exige cobertura total de todas as áreas das mãos e fricção ativa até a secagem natural do produto por evaporação."
+    feedback: "O ambiente pode contribuir para transmissão de microrganismos, por isso precisa ser considerado na prevenção."
   },
   {
     id: "5-18",
-    text: "Qual a recomendação para a higiene das mãos após o contato com o paciente (Momento 4)?",
+    text: "Qual conduta é correta antes de manipular um cateter?",
     options: [
-      "Higienizar as mãos imediatamente ao se afastar do paciente para remover germes adquiridos na pele dele e proteger o ambiente.",
-      "A higiene é opcional caso o paciente estivesse usando roupas limpas e lençóis lavados de fábrica.",
-      "Deve-se realizar apenas se o paciente tiver tocado nas mãos do profissional de saúde de forma direta e firme.",
-      "Apenas se o profissional planejar realizar uma pausa para lanche ou refeição logo na sequência do atendimento."
+      "Higienizar as mãos e seguir técnica/protocolo adequado.",
+      "Apenas tocar rapidamente para reduzir contato.",
+      "Usar luvas sem higienizar as mãos.",
+      "Manipular primeiro e higienizar depois se houver tempo."
     ],
     correctIndex: 0,
-    feedback: "Este momento protege o profissional de carregar a microbiota do paciente para as áreas comuns do hospital ou para outros indivíduos."
+    feedback: "Cateteres e dispositivos invasivos exigem higiene das mãos e cuidado técnico para prevenir infecção."
   },
   {
     id: "5-19",
-    text: "Como o envolvimento da CCIH (Comissão de Controle de Infecção Hospitalar) apoia o cumprimento da Meta 5?",
+    text: "Qual conjunto representa corretamente os cinco momentos citados no material?",
     options: [
-      "Por meio de auditorias de conformidade, treinamentos contínuos e monitoramento de taxas de infecção para guiar melhorias.",
-      "Gerenciando as escalas de plantão de enfermagem e aplicando punições financeiras automáticas por faltas.",
-      "Substituindo a equipe assistencial na lavagem diária dos leitos e equipamentos médicos do setor.",
-      "Comprando insumos de higiene diretamente de marcas estrangeiras exclusivas sem licitação ou cotação."
+      "Antes de tocar o paciente; antes de procedimento limpo/asséptico; após risco de fluidos; após tocar o paciente; após tocar superfícies próximas.",
+      "Ao entrar no hospital; antes do almoço; após reunião; antes de sair; ao chegar em casa.",
+      "Antes da admissão; após a alta; antes das férias; após a reunião; antes da auditoria.",
+      "Antes do plantão; depois do plantão; no intervalo; no corredor; no estacionamento."
     ],
     correctIndex: 0,
-    feedback: "A vigilância epidemiológica e o feedback de adesão à higiene das mãos são ferramentas comprovadas de melhoria de processos de segurança."
+    feedback: "Esses são os momentos de higienização destacados nas práticas da Meta 5."
   },
   {
     id: "5-20",
-    text: "O que fazer se um dispensador de álcool em gel estiver vazio ao lado do leito de um paciente que exige cuidados urgentes?",
+    text: "Qual é a melhor síntese da Meta 5?",
     options: [
-      "Buscar o dispensador mais próximo em funcionamento ou utilizar o frasco de bolso individual antes do contato assistencial.",
-      "Realizar o procedimento sem higienizar as mãos, justificando o risco pelo esvaziamento do frasco institucional.",
-      "Pedir para o paciente vizinho emprestar seu frasco de álcool gel de uso pessoal trazido de sua residência.",
-      "Lavar as mãos apenas com água encanada fria, dispensando o uso de sabão ou qualquer tipo de antisséptico seco."
+      "Higienizar as mãos no momento certo, usar EPI conforme risco e cuidar de dispositivos e ambiente.",
+      "Usar luvas sempre e deixar de higienizar as mãos quando estiver com pressa.",
+      "Evitar contato com o paciente para não precisar de higiene das mãos.",
+      "Higienizar somente quando houver sujeira visível."
     ],
     correctIndex: 0,
-    feedback: "A falta do insumo no local exato não anula a obrigação; barreiras alternativas portáteis ou pias de lavagem devem ser acessadas imediatamente."
+    feedback: "A Meta 5 reúne ações simples e essenciais para reduzir infecções associadas ao cuidado."
   }
 ];

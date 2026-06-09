@@ -3,242 +3,242 @@ import { Question } from '../questions-type';
 export const META6_QUESTIONS: Question[] = [
   {
     id: "6-1",
-    text: "Quando deve ser realizada a avaliação formal do risco de queda do paciente?",
+    text: "Qual é o objetivo principal da Meta 6 no material de estudo?",
     options: [
-      "Na admissão do paciente e sempre que houver mudança clínica significativa, introdução de novos fármacos ou transferência.",
-      "Uma única vez durante o ato da internação na recepção, fixando o risco de forma imutável até a alta.",
-      "Apenas após o paciente sofrer a primeira queda real consumada dentro da enfermaria ou banheiro.",
-      "Exclusivamente nos fins de semana, quando a equipe de enfermagem do setor encontra-se reduzida em escala."
+      "Prevenir quedas e reduzir lesões em pacientes durante atendimento, internação, exames, banho, transporte ou deslocamento.",
+      "Permitir que pacientes se desloquem sempre sozinhos para estimular autonomia.",
+      "Eliminar a necessidade de avaliação de risco de queda.",
+      "Reduzir o número de orientações dadas ao paciente e acompanhante."
     ],
     correctIndex: 0,
-    feedback: "O risco de queda é dinâmico e se altera com a evolução da doença, procedimentos cirúrgicos recentes ou uso de novas medicações."
+    feedback: "A Meta 6 busca prevenir quedas e reduzir danos em diferentes momentos do cuidado e deslocamento."
   },
   {
     id: "6-2",
-    text: "Qual destas alternativas descreve fatores de risco intrínsecos (relacionados ao paciente) para quedas?",
+    text: "Segundo o material, a queda pode acontecer por quais fatores?",
     options: [
-      "Fraqueza muscular, tontura, confusão mental, idade avançada e distúrbios de marcha.",
-      "Pisos molhados, ausência de grades no leito, iluminação fraca e calçados soltos.",
-      "Falta de funcionários no setor, campainhas quebradas e macas altas sem travas.",
-      "Dietas hipercalóricas, falta de televisão no quarto e ausência de visitas familiares."
+      "Fraqueza, tontura, uso de medicamentos, idade avançada, confusão mental, dor, ambiente inadequado ou falta de orientação.",
+      "Apenas por falta de acompanhante no horário de visita.",
+      "Somente quando o paciente está em jejum absoluto.",
+      "Apenas quando o paciente está em setor cirúrgico."
     ],
     correctIndex: 0,
-    feedback: "Fatores intrínsecos decorrem das condições fisiológicas, patológicas ou de tratamentos farmacológicos do próprio indivíduo."
+    feedback: "O material lista fatores clínicos, medicamentosos, ambientais e de orientação que podem contribuir para quedas."
   },
   {
     id: "6-3",
-    text: "Quais são as principais medidas de segurança ambiental para manter o quarto de um paciente livre de quedas?",
+    text: "Quando o risco de queda deve ser avaliado?",
     options: [
-      "Manter a cama em posição baixa, rodas travadas, campainha de chamada ao alcance e ambiente sem obstáculos físicos.",
-      "Manter as camas reguladas na altura máxima e luzes totalmente apagadas durante a noite para induzir o sono.",
-      "Retirar todas as grades laterais de proteção para incentivar o paciente idoso a se levantar sozinho com autonomia.",
-      "Orientar o paciente a caminhar descalço em superfícies úmidas ou enceradas para melhorar a aderência podálica."
+      "Na admissão e sempre que houver mudança clínica.",
+      "Somente depois que o paciente cair.",
+      "Apenas no momento da alta hospitalar.",
+      "Somente quando o acompanhante solicitar."
     ],
     correctIndex: 0,
-    feedback: "O ambiente seguro mitiga riscos extrínsecos, evitando que o paciente tente se levantar sem auxílio ou tropece em barreiras físicas."
+    feedback: "O risco de queda deve ser avaliado na admissão e reavaliado quando houver mudança clínica."
   },
   {
     id: "6-4",
-    text: "Por que os medicamentos sedativos, diuréticos e hipotensores aumentam o risco de quedas?",
+    text: "O que deve ser feito com pacientes classificados como risco de queda?",
     options: [
-      "Porque alteram o nível de consciência, provocam tonturas, hipotensão postural ou urgência miccional súbita.",
-      "Apenas porque aumentam a imunidade celular e provocam hiperatividade motora involuntária crônica nas pernas.",
-      "Porque causam rigidez articular permanente em menos de 24 horas após a primeira dose administrada.",
-      "Porque os comprimidos possuem revestimento químico escorregadio que contamina os dedos do paciente."
+      "Sinalizar conforme protocolo da instituição.",
+      "Manter sem sinalização para não chamar atenção.",
+      "Liberar deslocamento sem orientação.",
+      "Remover campainha para evitar chamadas frequentes."
     ],
     correctIndex: 0,
-    feedback: "Estas classes farmacológicas diminuem a estabilidade hemodinâmica ou o estado de alerta, predispondo a desequilíbrios mecânicos durante a deambulação."
+    feedback: "A sinalização ajuda a equipe a reconhecer pacientes que precisam de medidas preventivas."
   },
   {
     id: "6-5",
-    text: "Qual a conduta correta da equipe ao identificar um paciente classificado como de 'Alto Risco de Queda'?",
+    text: "Qual medida ambiental ajuda a prevenir quedas?",
     options: [
-      "Sinalizar o paciente conforme o protocolo institucional (ex: pulseiras coloridas ou placas no leito) e aplicar medidas preventivas intensas.",
-      "Isolar o paciente em um quarto fechado e proibir a entrada de qualquer familiar acompanhante durante a internação.",
-      "Manter o paciente contido firmemente no leito com amarras de tecido durante 24 horas consecutivas por segurança própria.",
-      "Não realizar nenhuma alteração de rotina para não estigmatizar o paciente perante os demais internados do setor."
+      "Manter cama baixa, rodas travadas, campainha próxima e ambiente sem obstáculos.",
+      "Manter a cama alta para facilitar a limpeza.",
+      "Deixar objetos espalhados para o paciente alcançar sozinho.",
+      "Apagar toda a iluminação durante deslocamentos."
     ],
     correctIndex: 0,
-    feedback: "A sinalização visual alerta toda a equipe multidisciplinar (médicos, técnicos, fisioterapeutas, copeiros) sobre a necessidade de supervisão contínua daquele indivíduo."
+    feedback: "Cama baixa, rodas travadas, campainha próxima e ambiente livre de obstáculos reduzem risco de queda."
   },
   {
     id: "6-6",
-    text: "O que deve ser orientado ao paciente e ao acompanhante em relação à prevenção de quedas?",
+    text: "Qual orientação deve ser dada ao paciente e acompanhante?",
     options: [
-      "Pedir ajuda à equipe de enfermagem antes de se levantar da cama, da poltrona ou de tentar ir ao banheiro.",
-      "Que o paciente deve tentar realizar todos os seus deslocamentos sozinho para acelerar a reabilitação física muscular.",
-      "Que a equipe de enfermagem está proibida de acompanhar o paciente até o banheiro por questões de privacidade civil.",
-      "Que eles devem consertar as grades da cama manualmente caso percebam folgas ou defeitos mecânicos de travamento."
+      "Pedir ajuda antes de levantar.",
+      "Levantar rapidamente para evitar tontura.",
+      "Ir ao banheiro sozinho para preservar privacidade em qualquer situação.",
+      "Usar móveis com rodinhas como apoio."
     ],
     correctIndex: 0,
-    feedback: "A orientação clara e a pactuação de ajuda previnem tentativas perigosas de deambulação solitária em momentos de fraqueza ou tontura."
+    feedback: "Orientar a pedir ajuda antes de levantar é uma prática central para prevenir quedas."
   },
   {
     id: "6-7",
-    text: "Qual o local de maior incidência de quedas hospitalares documentado e citado como ponto de atenção?",
+    text: "Quando a equipe deve acompanhar deslocamentos?",
     options: [
-      "O banheiro, especialmente durante o banho ou ao tentar evacuar/urinar durante a noite sem auxílio.",
-      "A recepção central do hospital no momento de preenchimento dos papéis de internação iniciais.",
-      "O refeitório dos funcionários e a cozinha central de preparo de dietas gerais do complexo.",
-      "A sala de exames de tomografia computadorizada, devido aos campos magnéticos intensos das máquinas."
+      "Quando o paciente tiver risco aumentado de queda.",
+      "Apenas quando o paciente estiver de alta.",
+      "Somente se o paciente estiver sem identificação.",
+      "Apenas durante visitas familiares."
     ],
     correctIndex: 0,
-    feedback: "O banheiro combina superfícies escorregadias (água e sabão), esforço físico (evacuação) e mudanças posturais rápidas que causam tontura (hipotensão ortostática)."
+    feedback: "Pacientes com risco aumentado devem receber supervisão nos deslocamentos."
   },
   {
     id: "6-8",
-    text: "Como as grades laterais da cama devem ser gerenciadas em pacientes com alto risco de queda e agitação psicomotora extrema?",
+    text: "Quais recursos ajudam na prevenção de quedas?",
     options: [
-      "Mantidas elevadas e travadas, avaliando a necessidade de supervisão contínua ou barreiras acolchoadas para evitar traumas e quedas por cima da grade.",
-      "Mantidas totalmente abaixadas para que se o paciente cair, a altura da queda seja menor e cause menos lesões mecânicas.",
-      "Retiradas permanentemente do mobiliário e substituídas por pilhas de travesseiros comuns soltos no chão do quarto.",
-      "Amarradas com fios elétricos desencapados para emitir alertas sonoros mecânicos em caso de movimentação."
+      "Iluminação adequada, calçados seguros e dispositivos de apoio quando necessários.",
+      "Luzes apagadas, chinelos soltos e corredor com obstáculos.",
+      "Cama alta, rodas destravadas e campainha distante.",
+      "Orientação para levantar sem chamar a equipe."
     ],
     correctIndex: 0,
-    feedback: "Grades elevadas protegem contra rolamentos acidentais durante o sono, mas em pacientes muito agitados e sem supervisão, podem servir de trampolim, gerando quedas de alturas ainda maiores se não monitorados."
+    feedback: "Iluminação, calçados seguros e dispositivos de apoio ajudam a reduzir o risco durante deslocamentos."
   },
   {
     id: "6-9",
-    text: "O que caracteriza uma queda hospitalar da própria altura na Meta 6?",
+    text: "No exemplo do material, por que o paciente idoso que usa sedativo é considerado risco de queda?",
     options: [
-      "Um evento adverso em que o paciente perde o equilíbrio e vai ao solo involuntariamente a partir da posição de pé ou deambulação.",
-      "O tombo de um paciente que tenta escalar as janelas externas do edifício do hospital para fuga.",
-      "A queda de objetos como soros, prontuários ou comadres de cima da mesa de cabeceira diretamente no chão.",
-      "O deslocamento mecânico do colchão da cama que escorrega do estrado devido a defeitos de fabricação."
+      "Porque sedativo e idade avançada podem aumentar risco de tontura, sonolência e instabilidade.",
+      "Porque todo paciente idoso deve ficar sem campainha.",
+      "Porque sedativo elimina a necessidade de acompanhante.",
+      "Porque o risco só existe após a alta."
     ],
     correctIndex: 0,
-    feedback: "Quedas da própria altura são os eventos mais comuns e podem resultar em fraturas severas de fêmur ou traumatismos cranianos em idosos frágeis."
+    feedback: "O exemplo mostra paciente idoso em uso de sedativo com orientação, campainha ao alcance e acompanhamento ao banheiro."
   },
   {
     id: "6-10",
-    text: "Qual a importância de calçados seguros (antiderrapantes) na deambulação do paciente internado?",
+    text: "Qual ação aparece no exemplo do material para prevenir queda?",
     options: [
-      "Garantem estabilidade e aderência mecânica ao piso, reduzindo escorregões em superfícies lisas ou banheiros.",
-      "São obrigatórios apenas para atender às normas estéticas de padronização de uniformes do complexo hospitalar.",
-      "Substituem a necessidade do uso de andadores ou bengalas em pacientes com sequelas graves de AVC.",
-      "Aceleram o fluxo urinário por meio do estímulo térmico podálico direto com o solo aquecido."
+      "Manter a campainha ao alcance e acompanhar o paciente ao banheiro.",
+      "Deixar o paciente ir sozinho para testar equilíbrio.",
+      "Retirar a orientação para não assustar o paciente.",
+      "Manter as rodas da cama destravadas para facilitar movimentação."
     ],
     correctIndex: 0,
-    feedback: "Calçados inadequados (chinelos largos, meias comuns de algodão sem solado antiderrapante) sabotam o equilíbrio de pacientes debilitados."
+    feedback: "O exemplo reforça orientação, campainha ao alcance e acompanhamento do paciente com risco."
   },
   {
     id: "6-11",
-    text: "Se um paciente sofre uma queda dentro do hospital, qual a conduta imediata da equipe de saúde?",
+    text: "A prevenção de quedas deve acontecer apenas na admissão?",
     options: [
-      "Prestar socorro imediato, avaliar lesões vitais, notificar o médico assistente, realizar o registro do evento e monitorar o paciente.",
-      "Colocar o paciente de volta na cama rapidamente e fingir que nada aconteceu para evitar relatórios burocráticos.",
-      "Culpar verbalmente o acompanhante por ter se distraído ou deixado o paciente levantar sozinho do leito.",
-      "Aguardar o término do plantão para preencher uma ficha simples de achados perdidos no setor administrativo."
+      "Não. Deve ser contínua, pois o risco pode mudar.",
+      "Sim. Após a admissão, o risco nunca muda.",
+      "Sim. Só precisa ser feita no primeiro contato.",
+      "Não. Deve acontecer apenas na alta."
     ],
     correctIndex: 0,
-    feedback: "A prioridade absoluta é a integridade física do paciente, seguida pela avaliação diagnóstica de danos ocultos (ex: sangramentos internos) e notificação institucional do evento para melhoria contínua."
+    feedback: "O material alerta que a prevenção deve ser contínua, pois o risco pode mudar ao longo do atendimento."
   },
   {
     id: "6-12",
-    text: "Como o relógio de segurança ou rondas preventivas programadas da enfermagem auxiliam na Meta 6?",
+    text: "Quais situações podem alterar o risco de queda, conforme o material?",
     options: [
-      "Antecipam necessidades básicas do paciente (como ir ao banheiro ou tomar água), evitando que ele tente se levantar sozinho.",
-      "Garantem que o funcionário assine o ponto eletrônico de hora em hora para comprovação de produtividade laboral.",
-      "Permitem que a equipe apague as luzes do corredor mais cedo para economizar energia elétrica na instituição.",
-      "Servem para verificar se o paciente está assistindo a canais de televisão autorizados pela governança."
+      "Medicação, cirurgia, febre, dor, tontura, alteração mental ou mudança de setor.",
+      "Apenas troca de roupa do paciente.",
+      "Somente mudança no horário de visita.",
+      "Apenas alteração na dieta do acompanhante."
     ],
     correctIndex: 0,
-    feedback: "As rondas proativas de segurança quebram o ciclo da deambulação impulsiva de pacientes confusos ou com urgência miccional."
+    feedback: "Essas situações podem mudar o estado clínico ou funcional do paciente, aumentando o risco de queda."
   },
   {
     id: "6-13",
-    text: "Qual o impacto do uso de contenção mecânica no leito em relação ao risco de quedas?",
+    text: "Qual alternativa mostra prática insegura para prevenção de quedas?",
     options: [
-      "Deve ser um último recurso sob prescrição e monitoramento rígidos, pois o uso incorreto ou prolongado pode aumentar a agitação e causar quedas graves por cima das grades.",
-      "É a melhor e mais eficaz medida preventiva primária aplicável de forma compulsória a 100% dos idosos internados.",
-      "Substitui plenamente a necessidade de grades nas camas ou o uso de campainhas de chamada no quarto.",
-      "Elimina o risco de lesões cutâneas e melhora a circulação linfática periférica dos membros contidos."
+      "Deixar ambiente com obstáculos e campainha distante do paciente.",
+      "Manter cama baixa e rodas travadas.",
+      "Orientar o paciente a pedir ajuda antes de levantar.",
+      "Acompanhar deslocamentos de pacientes com risco aumentado."
     ],
     correctIndex: 0,
-    feedback: "A contenção física inadequada gera estresse, sofrimento e agitação severa; o paciente tenta se libertar e pode sofrer quedas catastróficas com enforcamentos ou fraturas complexas."
+    feedback: "Obstáculos e campainha distante dificultam pedido de ajuda e aumentam risco de queda."
   },
   {
     id: "6-14",
-    text: "Como a Meta 6 se integra à Meta 1 (Identificação) no gerenciamento de riscos?",
+    text: "Qual é a relação entre dor, tontura e risco de queda?",
     options: [
-      "Pacientes com alto risco de queda recebem identificadores visuais específicos adicionais (ex: pulseira amarela ou placa com ícone de queda) vinculados à sua identidade segura.",
-      "Garantindo que apenas pacientes com nomes curtos ou fáceis de soletrar sejam avaliados para risco de quedas.",
-      "Substituindo a pulseira de nome completo por uma pulseira exclusiva contendo apenas o escore da escala de quedas.",
-      "Não há nenhuma integração biunívoca entre a identificação do paciente e os riscos ambientais de quedas."
+      "Podem comprometer equilíbrio, força ou atenção, aumentando risco de queda.",
+      "Eliminam a necessidade de acompanhamento.",
+      "Só importam se o paciente estiver no centro cirúrgico.",
+      "Não têm relação com segurança do paciente."
     ],
     correctIndex: 0,
-    feedback: "As metas interagem; a identificação clara do status de risco do paciente protege-o durante transportes e exames em outros setores onde a equipe local não o conhece."
+    feedback: "Dor e tontura podem alterar mobilidade e equilíbrio, exigindo reavaliação e prevenção."
   },
   {
     id: "6-15",
-    text: "O que deve ser verificado em relação às cadeiras de rodas antes de transferir um paciente de risco?",
+    text: "Qual item faz parte do checklist rápido da Meta 6?",
     options: [
-      "Se os freios mecânicos das rodas estão totalmente acionados e travados antes do paciente sentar ou levantar.",
-      "A cor do estofado do assento para garantir a harmonia visual com as vestimentas civis do paciente.",
-      "Se o fabricante da cadeira possui certificações internacionais de exportação de ligas metálicas leves.",
-      "Se o peso da cadeira é inferior a 5 kg para facilitar o manuseio por estagiários de enfermagem."
+      "O risco de queda foi avaliado e prevenido?",
+      "A prescrição foi conferida com dupla checagem?",
+      "O resultado crítico foi comunicado ao médico?",
+      "A pulseira de identificação tem três indicadores?"
     ],
     correctIndex: 0,
-    feedback: "Cadeiras de rodas soltas escorregam para trás no momento em que o paciente projeta o peso do corpo para se levantar, provocando quedas diretas sobre o cóccix ou coluna."
+    feedback: "O checklist da Meta 6 reforça sinalização, orientação, ambiente seguro e supervisão quando necessário."
   },
   {
     id: "6-16",
-    text: "Em pacientes pediátricos, quais as causas mais comuns de quedas e como preveni-las?",
+    text: "Qual conduta está correta se o paciente refere tontura após medicação?",
     options: [
-      "Quedas de berços ou camas com grades abaixadas e falta de supervisão dos pais durante brincadeiras; previne-se mantendo grades elevadas e orientando responsáveis.",
-      "Tentativas de fuga de adolescentes pelas janelas da enfermaria durante a madrugada; previne-se com grades de ferro soldadas.",
-      "Tonturas causadas por excesso de dietas líquidas doces; previne-se substituindo por dietas salgadas sólidas precoces.",
-      "Erros de equilíbrio causados pelo uso de fraldas descartáveis muito cheias de urina; previne-se com trocas de hora em hora."
+      "Reavaliar risco de queda e adotar medidas preventivas.",
+      "Permitir que ele caminhe sozinho para observar evolução.",
+      "Retirar a campainha para evitar chamadas repetidas.",
+      "Aguardar uma queda para classificar o risco."
     ],
     correctIndex: 0,
-    feedback: "A infância combina curiosidade natural e falta de percepção de perigo, exigindo barreiras físicas protetoras (grades de berço) sempre funcionais e trancadas."
+    feedback: "Tontura após medicação pode aumentar risco, exigindo reavaliação e prevenção."
   },
   {
     id: "6-17",
-    text: "Qual a importância de manter a campainha de chamada fixada e ao alcance da mão do paciente acamado?",
+    text: "Por que a campainha deve ficar próxima ao paciente?",
     options: [
-      "Permite que o paciente chame a equipe sem precisar se esticar ou levantar do leito, evitando desequilíbrios mecânicos no leito.",
-      "Evita que o fio da campainha caia no chão e sofra danos causados pelas rodas das macas em movimento no setor.",
-      "Garante que o paciente possa sintonizar canais de rádio internos operados pela central de hotelaria hospitalar.",
-      "Permite que a equipe de enfermagem saiba exatamente a frequência cardíaca do paciente através do toque do botão."
+      "Para que ele consiga pedir ajuda antes de levantar ou em caso de necessidade.",
+      "Para que o paciente levante sozinho para alcançá-la.",
+      "Para substituir a orientação da equipe.",
+      "Para evitar que o acompanhante participe do cuidado."
     ],
     correctIndex: 0,
-    feedback: "Se o canal de comunicação falha ou fica distante, o paciente prefere arriscar-se a levantar sozinho para buscar água ou urinar, culminando na queda."
+    feedback: "Campainha ao alcance facilita o pedido de ajuda e reduz tentativas inseguras de levantar sozinho."
   },
   {
     id: "6-18",
-    text: "Como a fisioterapia motora contribui para a Meta 6 dentro do ambiente hospitalar?",
+    text: "Qual medida é adequada durante banho ou deslocamento de paciente com risco aumentado?",
     options: [
-      "Fortalecendo a musculatura, melhorando o equilíbrio estático e dinâmico e treinando a marcha segura com dispositivos de apoio.",
-      "Substituindo os medicamentos hipotensores por sessões de massagens relaxantes profundas na musculatura dorsal.",
-      "Garantindo que o paciente permaneça em repouso absoluto no leito sem realizar nenhuma movimentação voluntária.",
-      "Realizando testes de força com pesos de alta carga para testar os limites de resistência óssea a fraturas traumáticas."
+      "Supervisão ou acompanhamento conforme necessidade e protocolo.",
+      "Deixar o paciente sozinho para garantir privacidade absoluta.",
+      "Apagar a luz para evitar incômodo visual.",
+      "Retirar dispositivos de apoio para estimular equilíbrio."
     ],
     correctIndex: 0,
-    feedback: "A reabilitação e o treino de transferências seguras conferem estabilidade física e consciência corporal ao paciente vulnerável, blindando-o contra quedas."
+    feedback: "Banho e deslocamento são momentos de risco; pacientes com risco aumentado podem precisar de supervisão."
   },
   {
     id: "6-19",
-    text: "Diante de um piso que acabou de ser limpo e está úmido na enfermaria, qual a conduta da equipe?",
+    text: "Qual conjunto resume medidas preventivas da Meta 6?",
     options: [
-      "Sinalizar a área com placas de alerta de piso molhado visíveis e orientar os pacientes a aguardarem a secagem completa para transitar.",
-      "Ignorar a umidade, confiando que os pacientes caminharão com passos lentos por iniciativa e cuidado próprios.",
-      "Obrigá-los a caminhar de meias sem solado antiderrapante para secar o chão de forma mecânica coletiva acelerada.",
-      "Desligar todas as luzes do corredor para que os pacientes não vejam as poças d'água e não fiquem ansiosos."
+      "Avaliação, sinalização, supervisão, orientação e organização do ambiente.",
+      "Pressa, improviso, ausência de registro e deslocamento sem ajuda.",
+      "Cama alta, rodas livres, pouca luz e objetos no caminho.",
+      "Uso de leito como identificação e ausência de orientação."
     ],
     correctIndex: 0,
-    feedback: "A sinalização de perigo temporária e o bloqueio visual/físico de áreas úmidas quebram o elo de acidentes causados por escorregões hospitalares."
+    feedback: "Prevenir quedas exige avaliação, sinalização, supervisão e organização do ambiente."
   },
   {
     id: "6-20",
-    text: "Por que a ocorrência de quedas hospitalares é considerada um indicador de qualidade da assistência de enfermagem?",
+    text: "Qual é a melhor síntese da Meta 6?",
     options: [
-      "Porque reflete a eficácia dos cuidados preventivos, a vigilância da equipe, a adequação ambiental e o cumprimento de pontos de segurança.",
-      "Porque serve para calcular os gastos hospitalares com a compra de gessos, talas e exames radiográficos pós-trauma.",
-      "Porque determina o ranking de hospitais com maior espaço físico de corredores planos livres para deambulação.",
-      "Atua para punir financeiramente os enfermeiros chefes com base no número de fraturas registradas ao mês."
+      "Avaliar continuamente o risco de queda e criar condições seguras para o paciente se movimentar.",
+      "Permitir que o paciente levante sem ajuda para ganhar autonomia rapidamente.",
+      "Sinalizar apenas depois que a queda acontecer.",
+      "Focar somente no leito, sem observar medicação, tontura ou ambiente."
     ],
     correctIndex: 0,
-    feedback: "Baixas taxas de quedas em cenários de alta complexidade clínica sinalizam processos assistenciais maduros, rondas eficientes e adesão rígida à cultura de segurança internacional."
+    feedback: "A Meta 6 depende de prevenção contínua, orientação e ambiente seguro para reduzir quedas e lesões."
   }
 ];
