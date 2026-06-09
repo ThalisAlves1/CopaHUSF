@@ -94,6 +94,19 @@ function isDashboardHistoryState(state: unknown): state is DashboardHistoryState
   return !!state && typeof state === 'object' && (state as DashboardHistoryState).husfDashboardRoute === true;
 }
 
+function isMetaCompleted(progress?: MetaProgress | null) {
+  if (!progress) return false;
+  return !!progress.hasPerfected
+    || (progress.totalCoinsEarned || 0) >= 150
+    || (progress.totalAttempts || 0) >= 3
+    || (progress.attemptsToday || 0) >= 3;
+}
+
+function getMetaAttemptCount(progress?: MetaProgress | null) {
+  if (!progress) return 0;
+  return Math.max(progress.totalAttempts || 0, progress.attemptsToday || 0);
+}
+
 function sameUserData(a?: User | null, b?: User | null) {
   if (!a || !b) return false;
   return JSON.stringify({
@@ -576,7 +589,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     const maxQuizCoins = metaIds.length * 150; // 6 metas x 150 pontos = 900 pontos possíveis
     const aproveitamento = maxQuizCoins > 0 ? Math.round((totalQuizCoins / maxQuizCoins) * 1000) / 10 : 0;
     const metasParticipadas = metaIds.filter(metaId => (u.progress?.[metaId]?.totalCoinsEarned || 0) > 0).length;
-    const metasConcluidas = metaIds.filter(metaId => (u.progress?.[metaId]?.totalCoinsEarned || 0) >= 150).length;
+    const metasConcluidas = metaIds.filter(metaId => isMetaCompleted(u.progress?.[metaId])).length;
 
     return {
       totalQuizCoins,
@@ -1138,9 +1151,9 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     const rankIndex = user.isAdmin ? -1 : rankedUsers.findIndex(u => u.cpf === user.cpf);
     const nextRanked = rankIndex > 0 ? rankedUsers[rankIndex - 1] : undefined;
     const nextIncompleteReleasedMeta = METAS.find(meta =>
-      releasedMetas.includes(meta.id) && ((user.progress?.[meta.id]?.totalCoinsEarned || 0) < 150)
+      releasedMetas.includes(meta.id) && !isMetaCompleted(user.progress?.[meta.id])
     );
-    const nextIncompleteAnyMeta = METAS.find(meta => (user.progress?.[meta.id]?.totalCoinsEarned || 0) < 150);
+    const nextIncompleteAnyMeta = METAS.find(meta => !isMetaCompleted(user.progress?.[meta.id]));
     const nextMeta = nextIncompleteReleasedMeta || nextIncompleteAnyMeta;
     const lastActivity = currentUserActivity[0];
 
@@ -1237,7 +1250,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
 
     const metaReports = METAS.map((meta) => {
       const participants = collaborators.filter(c => (c.progress?.[meta.id]?.totalCoinsEarned || 0) > 0).length;
-      const completed = collaborators.filter(c => (c.progress?.[meta.id]?.totalCoinsEarned || 0) >= 150).length;
+      const completed = collaborators.filter(c => isMetaCompleted(c.progress?.[meta.id])).length;
       const totalCoins = collaborators.reduce((sum, c) => sum + (c.progress?.[meta.id]?.totalCoinsEarned || 0), 0);
       const maxCoins = totalCollaborators * 150;
       return {
@@ -1537,8 +1550,8 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                   
                   const isTreinoLivre = !!(prog?.totalCoinsEarned && prog.totalCoinsEarned >= 150);
                   const hasPerfected = !!prog?.hasPerfected;
-                  const totalAttempts = prog?.totalAttempts || 0;
-                  const hasAttemptsRemaining = totalAttempts < 3 && !hasPerfected;
+                  const totalAttempts = getMetaAttemptCount(prog);
+                  const hasAttemptsRemaining = totalAttempts < 3 && !hasPerfected && !isMetaCompleted(prog);
                   const isAmador = !!(prog?.isAmador || (prog?.totalCoinsEarned && prog.totalCoinsEarned > 0 && prog.lastPlayedDate !== today));
                   
                   return (

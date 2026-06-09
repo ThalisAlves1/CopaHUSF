@@ -129,16 +129,21 @@ export function Quiz({ metaId, metaTitle, metaColor, progress, onComplete, onAbo
     }
 
     const currentTotal = progress?.totalCoinsEarned || 0;
-    // Cap at 150 total coins per meta
-    const coinsToAward = Math.min(150 - currentTotal, coinsOfThisAttempt);
+    // Cap at 150 total coins per meta and never subtract coins if progress is already capped.
+    const coinsToAward = Math.max(0, Math.min(150 - currentTotal, coinsOfThisAttempt));
+    const isPerfectFirstAttempt = currentAttemptNum === 1 && correctCount === questions.length;
 
     const newProgress: MetaProgress = {
       metaId,
       lastPlayedDate: today,
-      attemptsToday: 3, // Exhaust attempts by default once they accept and confirm
-      highestCoinsToday: coinsOfThisAttempt,
+      // Ao aceitar as moedas, a meta precisa ser encerrada imediatamente.
+      // A tela de desafios usa totalAttempts para decidir se a meta já foi feita.
+      attemptsToday: 3,
+      totalAttempts: 3,
+      highestCoinsToday: Math.max(progress?.highestCoinsToday || 0, coinsOfThisAttempt),
       totalCoinsEarned: Math.min(150, currentTotal + coinsToAward),
-      isAmador
+      isAmador,
+      hasPerfected: !!progress?.hasPerfected || isPerfectFirstAttempt
     };
 
     setFinishData({ coinsToAward, newProgress });
