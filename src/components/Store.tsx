@@ -96,7 +96,7 @@ export function Store({ coins, onBuyPack }: StoreProps) {
             
             <div className={`mb-6 relative h-20 flex items-center justify-center`}>
               {pkg.imageUrl ? (
-                <img src={pkg.imageUrl} alt={pkg.name} className="h-full object-contain drop-shadow-md" referrerPolicy="no-referrer" />
+                <img src={pkg.imageUrl} alt={pkg.name} className="h-full object-contain drop-shadow-md" referrerPolicy="no-referrer" loading="lazy" decoding="async" />
               ) : (
                 <PackageOpen className={`w-20 h-20 ${pkg.color.replace('bg-', 'text-')}`} />
               )}
@@ -163,7 +163,7 @@ export function Store({ coins, onBuyPack }: StoreProps) {
                 >
                   <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/40 to-white/0 opacity-60 pointer-events-none" />
                   {openingPackage.imageUrl ? (
-                    <img src={openingPackage.imageUrl} alt={openingPackage.name} className="w-24 h-32 sm:w-40 sm:h-56 object-contain drop-shadow-xl mb-4 sm:mb-8 relative z-10" referrerPolicy="no-referrer" />
+                    <img src={openingPackage.imageUrl} alt={openingPackage.name} className="w-24 h-32 sm:w-40 sm:h-56 object-contain drop-shadow-xl mb-4 sm:mb-8 relative z-10" referrerPolicy="no-referrer" loading="lazy" decoding="async" />
                   ) : (
                     getPackageIcon(openingPackage.id, "w-20 h-20 sm:w-32 sm:h-32 text-white drop-shadow-xl mb-4 sm:mb-8 relative z-10")
                   )}

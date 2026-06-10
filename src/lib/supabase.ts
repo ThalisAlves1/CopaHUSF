@@ -98,6 +98,36 @@ import { embedActivityLogInProgress, getActivityLog } from './activity';
   EXCEPTION WHEN duplicate_object THEN NULL;
   END $$;
 
+  -- 6. Storage bucket for real sticker image uploads from the Admin panel.
+  -- Run this once so the app can upload images and everyone can see them.
+  INSERT INTO storage.buckets (id, name, public)
+  VALUES ('husf-stickers', 'husf-stickers', true)
+  ON CONFLICT (id) DO UPDATE SET public = true;
+
+  DO $$ BEGIN
+    CREATE POLICY "Public Read Sticker Images" ON storage.objects
+      FOR SELECT USING (bucket_id = 'husf-stickers');
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END $$;
+
+  DO $$ BEGIN
+    CREATE POLICY "Public Upload Sticker Images" ON storage.objects
+      FOR INSERT WITH CHECK (bucket_id = 'husf-stickers');
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END $$;
+
+  DO $$ BEGIN
+    CREATE POLICY "Public Update Sticker Images" ON storage.objects
+      FOR UPDATE USING (bucket_id = 'husf-stickers') WITH CHECK (bucket_id = 'husf-stickers');
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END $$;
+
+  DO $$ BEGIN
+    CREATE POLICY "Public Delete Sticker Images" ON storage.objects
+      FOR DELETE USING (bucket_id = 'husf-stickers');
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END $$;
+
   ========================================================================
 */
 
@@ -150,6 +180,57 @@ export let lastSupabaseError: string | null = null;
 export const supabaseClient = isSupabaseConfigured 
   ? createClient(supabaseUrl, supabaseAnonKey) 
   : null;
+
+export const STICKER_STORAGE_BUCKET = 'husf-stickers';
+
+function safeStorageFileName(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase() || 'figurinha';
+}
+
+export async function uploadStickerImageFile(file: File, stickerId: number): Promise<string> {
+  if (!isSupabaseConfigured || !supabaseClient) {
+    throw new Error('Supabase não configurado. Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY para usar upload real de imagens.');
+  }
+
+  const extensionFromType = file.type === 'image/webp' ? 'webp'
+    : file.type === 'image/png' ? 'png'
+    : file.type === 'image/jpeg' || file.type === 'image/jpg' ? 'jpg'
+    : file.name.split('.').pop()?.toLowerCase() || 'webp';
+
+  const safeName = safeStorageFileName(file.name.replace(/\.[^.]+$/, ''));
+  const path = `stickers/sticker_${stickerId}_${Date.now()}_${safeName}.${extensionFromType}`;
+
+  const { error } = await promiseWithTimeout(
+    supabaseClient.storage
+      .from(STICKER_STORAGE_BUCKET)
+      .upload(path, file, {
+        cacheControl: '31536000',
+        upsert: true,
+        contentType: file.type || 'image/webp'
+      }) as any,
+    30000
+  ) as any;
+
+  if (error) {
+    const message = String(error.message || error.error || error);
+    if (message.toLowerCase().includes('bucket')) {
+      throw new Error(`Bucket de imagens não encontrado ou sem permissão. Crie o bucket público "${STICKER_STORAGE_BUCKET}" no Supabase Storage e aplique as políticas do SQL atualizado.`);
+    }
+    throw error;
+  }
+
+  const { data } = supabaseClient.storage.from(STICKER_STORAGE_BUCKET).getPublicUrl(path);
+  if (!data?.publicUrl) {
+    throw new Error('Upload concluído, mas não foi possível gerar a URL pública da imagem.');
+  }
+
+  return data.publicUrl;
+}
 
 // Default initial user mock if local/Supabase database is empty or not yet provisioned
 export const DB_DEFAULT_USERS: User[] = [
@@ -304,12 +385,23 @@ export const DB_DEFAULT_STICKERS: StickerDefinition[] = [
 ];
 
 // Helper to prevent database queries from hanging indefinitely if network/firewall/CORS is failing
-const SUPABASE_TIMEOUT_MS = 45000;
+const SUPABASE_TIMEOUT_MS = 12000;
+const USERS_CACHE_TTL_MS = 60_000;
+const STICKERS_CACHE_TTL_MS = 120_000;
+const MARKET_CACHE_TTL_MS = 45_000;
+const MAX_USERS_FETCH_ROWS = 1000;
+const MAX_MARKET_LISTINGS = 100;
+
+let usersMemoryCache: User[] | null = null;
+let usersMemoryFetchedAt = 0;
+let stickersMemoryCache: StickerDefinition[] | null = null;
+let stickersMemoryFetchedAt = 0;
+const marketMemoryCache = new Map<string, { fetchedAt: number; listings: StickerMarketListing[] }>();
 
 function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs = SUPABASE_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error(`Conexão com Supabase demorou mais de ${timeoutMs / 1000}s. Isso geralmente acontece quando o projeto está pausado/iniciando, quando a internet bloqueia a API ou quando havia imagens/base64 pesadas salvas no banco.`));
+      reject(new Error(`Conexão com Supabase demorou mais de ${timeoutMs / 1000}s. O app vai continuar usando o cache local para não travar.`));
     }, timeoutMs);
     promise.then(
       (res) => {
@@ -322,6 +414,24 @@ function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs = SUPABASE_TIMEOUT
       }
     );
   });
+}
+
+function isCacheFresh(fetchedAt: number, ttl: number) {
+  return fetchedAt > 0 && (Date.now() - fetchedAt) < ttl;
+}
+
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function setUsersCache(users: User[]) {
+  usersMemoryCache = cloneJson(users);
+  usersMemoryFetchedAt = Date.now();
+}
+
+function setStickersCache(stickers: StickerDefinition[]) {
+  stickersMemoryCache = cloneJson(stickers);
+  stickersMemoryFetchedAt = Date.now();
 }
 
 function formatCpfFromDigits(digits: string): string {
@@ -395,7 +505,7 @@ export function subscribeToSettings(onUpdate: (payload: any) => void) {
 // USERS SYNCHRONIZATION HELPERS
 // ────────────────────────────────────────────────────────────────────────
 
-export async function dbGetUsers(): Promise<User[]> {
+export async function dbGetUsers(options: { force?: boolean; maxRows?: number } = {}): Promise<User[]> {
   const getLocalBackup = (): User[] => {
     const local = localStorage.getItem('husf_users');
     if (local) {
@@ -446,30 +556,39 @@ export async function dbGetUsers(): Promise<User[]> {
     return DB_DEFAULT_USERS;
   };
 
+  if (!options.force && usersMemoryCache && isCacheFresh(usersMemoryFetchedAt, USERS_CACHE_TTL_MS)) {
+    return cloneJson(usersMemoryCache);
+  }
+
   if (!isSupabaseConfigured || !supabaseClient) {
-    return getLocalBackup();
+    const localBackup = getLocalBackup();
+    setUsersCache(localBackup);
+    return localBackup;
   }
 
   try {
     let allData: any[] = [];
     let page = 0;
-    const pageSize = 1000;
+    const pageSize = 250;
+    const maxRows = Math.max(50, Math.min(options.maxRows || MAX_USERS_FETCH_ROWS, MAX_USERS_FETCH_ROWS));
     let hasMore = true;
 
-    while (hasMore) {
+    while (hasMore && allData.length < maxRows) {
+      const from = page * pageSize;
+      const to = Math.min((page + 1) * pageSize - 1, maxRows - 1);
       const { data, error } = await promiseWithTimeout(
         supabaseClient
           .from('husf_users')
           .select('cpf,name,sector,coins,stickers,progress,is_admin,updated_at')
           .order('name', { ascending: true })
-          .range(page * pageSize, (page + 1) * pageSize - 1) as any
+          .range(from, to) as any
       ) as any;
 
       if (error) throw error;
 
       if (data && data.length > 0) {
         allData = [...allData, ...data];
-        if (data.length < pageSize) {
+        if (data.length < pageSize || allData.length >= maxRows) {
           hasMore = false;
         } else {
           page++;
@@ -513,16 +632,20 @@ export async function dbGetUsers(): Promise<User[]> {
 
       // Keep local sync updated
       localStorage.setItem('husf_users', JSON.stringify(parsed));
+      setUsersCache(parsed);
       return parsed;
     } else {
       // Seed default users to remote DB
       await dbSaveUsers(DB_DEFAULT_USERS);
+      setUsersCache(DB_DEFAULT_USERS);
       return DB_DEFAULT_USERS;
     }
   } catch (err) {
     lastSupabaseError = err instanceof Error ? err.message : String(err);
     console.warn('Supabase users query failed, loading from local storage backup:', err);
-    return getLocalBackup();
+    const localBackup = getLocalBackup();
+    setUsersCache(localBackup);
+    return localBackup;
   }
 }
 
@@ -543,6 +666,9 @@ export async function dbSaveUsers(users: User[]): Promise<void> {
       is_admin: !!u.isAdmin,
       updated_at: u.updatedAt || new Date().toISOString()
     }));
+
+    usersMemoryCache = null;
+    usersMemoryFetchedAt = 0;
 
     const { error } = await promiseWithTimeout(
       supabaseClient
@@ -572,6 +698,16 @@ export async function dbSaveSingleUser(user: User): Promise<void> {
   } catch {
     localStorage.setItem('husf_users', JSON.stringify([user]));
   }
+
+  setUsersCache((() => {
+    try {
+      const raw = localStorage.getItem('husf_users');
+      const parsed = raw ? JSON.parse(raw) : [user];
+      return Array.isArray(parsed) ? parsed : [user];
+    } catch {
+      return [user];
+    }
+  })());
 
   if (!isSupabaseConfigured || !supabaseClient) return;
 
@@ -604,6 +740,7 @@ export async function dbDeleteUser(cpf: string): Promise<void> {
   const current = await dbGetUsers();
   const updated = current.filter(u => u.cpf !== cpf);
   localStorage.setItem('husf_users', JSON.stringify(updated));
+  setUsersCache(updated);
 
   if (!isSupabaseConfigured || !supabaseClient) return;
 
@@ -756,7 +893,7 @@ function trySetLocalCatalog(catalog: StickerDefinition[]) {
   }
 }
 
-export async function dbGetStickers(): Promise<StickerDefinition[]> {
+export async function dbGetStickers(options: { force?: boolean } = {}): Promise<StickerDefinition[]> {
   const getLocalCatalog = (): StickerDefinition[] => {
     const local = localStorage.getItem('husf_sticker_catalog');
     if (local) {
@@ -780,8 +917,14 @@ export async function dbGetStickers(): Promise<StickerDefinition[]> {
     return seeded;
   };
 
+  if (!options.force && stickersMemoryCache && isCacheFresh(stickersMemoryFetchedAt, STICKERS_CACHE_TTL_MS)) {
+    return cloneJson(stickersMemoryCache);
+  }
+
   if (!isSupabaseConfigured || !supabaseClient) {
-    return getLocalCatalog();
+    const localCatalog = getLocalCatalog();
+    setStickersCache(localCatalog);
+    return localCatalog;
   }
 
   try {
@@ -807,9 +950,9 @@ export async function dbGetStickers(): Promise<StickerDefinition[]> {
           supabaseClient
             .from('husf_stickers')
             .select('id,image')
-            .gt('id', 18)
+            .not('image', 'is', null)
             .not('image', 'like', 'data:%')
-            .limit(500) as any,
+            .limit(300) as any,
           8000
         ) as any;
 
@@ -843,15 +986,19 @@ export async function dbGetStickers(): Promise<StickerDefinition[]> {
         };
       });
       trySetLocalCatalog(parsed);
+      setStickersCache(parsed);
       return parsed;
     } else {
       // Seed remote table since it has empty rows
       await dbSaveWholeCatalog(DB_DEFAULT_STICKERS);
+      setStickersCache(DB_DEFAULT_STICKERS);
       return DB_DEFAULT_STICKERS;
     }
   } catch (err) {
     console.warn('Supabase stickers query failed, loading from local storage backup:', err);
-    return getLocalCatalog();
+    const localCatalog = getLocalCatalog();
+    setStickersCache(localCatalog);
+    return localCatalog;
   }
 }
 
@@ -863,6 +1010,7 @@ export async function dbSaveWholeCatalog(stickers: StickerDefinition[]): Promise
     return s;
   });
   trySetLocalCatalog(parsedStickers);
+  setStickersCache(parsedStickers);
 
   if (!isSupabaseConfigured || !supabaseClient) return;
 
@@ -917,6 +1065,7 @@ export async function dbInsertSticker(sticker: StickerDefinition): Promise<void>
     current.push({ ...sticker, page: pageVal });
   }
   trySetLocalCatalog(current);
+  setStickersCache(current);
 }
 
 export async function dbUpdateSticker(sticker: StickerDefinition): Promise<void> {
@@ -950,6 +1099,7 @@ export async function dbUpdateSticker(sticker: StickerDefinition): Promise<void>
   }
   
   trySetLocalCatalog(updated);
+  setStickersCache(updated);
 }
 
 export async function dbDeleteSticker(id: number): Promise<void> {
@@ -974,6 +1124,7 @@ export async function dbDeleteSticker(id: number): Promise<void> {
   const current = await dbGetStickers();
   const updated = current.filter(s => s.id !== id);
   trySetLocalCatalog(updated);
+  setStickersCache(updated);
 }
 
 
@@ -1123,7 +1274,7 @@ function getLocalMarketListings(): StickerMarketListing[] {
 
 function setLocalMarketListings(listings: StickerMarketListing[]) {
   try {
-    localStorage.setItem('husf_sticker_market', JSON.stringify(listings));
+    localStorage.setItem('husf_sticker_market', JSON.stringify(listings.slice(0, 200)));
   } catch (err) {
     console.warn('Não foi possível salvar mercado local de figurinhas:', err);
   }
@@ -1136,38 +1287,54 @@ function removeOneStickerFromArray(stickers: number[], stickerId: number): numbe
   return copy;
 }
 
-export async function dbGetMarketListings(status: 'active' | 'sold' | 'cancelled' | 'all' = 'active'): Promise<StickerMarketListing[]> {
+export async function dbGetMarketListings(status: 'active' | 'sold' | 'cancelled' | 'all' = 'active', options: { force?: boolean; limit?: number } = {}): Promise<StickerMarketListing[]> {
+  const limit = Math.max(20, Math.min(options.limit || MAX_MARKET_LISTINGS, MAX_MARKET_LISTINGS));
+  const cacheKey = `${status}:${limit}`;
+  const cached = marketMemoryCache.get(cacheKey);
+  if (!options.force && cached && isCacheFresh(cached.fetchedAt, MARKET_CACHE_TTL_MS)) {
+    return cloneJson(cached.listings);
+  }
+
   if (!isSupabaseConfigured || !supabaseClient) {
-    const local = getLocalMarketListings();
-    return local
+    const local = getLocalMarketListings()
       .filter(listing => status === 'all' || listing.status === status)
-      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .slice(0, limit);
+    marketMemoryCache.set(cacheKey, { fetchedAt: Date.now(), listings: cloneJson(local) });
+    return local;
   }
 
   try {
     let query = supabaseClient
       .from('husf_sticker_market')
       .select('id,seller_cpf,seller_name,sticker_id,price,status,buyer_cpf,created_at,sold_at')
-      .order('created_at', { ascending: false }) as any;
+      .order('created_at', { ascending: false })
+      .limit(limit) as any;
 
     if (status !== 'all') {
       query = query.eq('status', status);
     }
 
-    const { data, error } = await promiseWithTimeout(query, 15000) as any;
+    const { data, error } = await promiseWithTimeout(query, 10000) as any;
     if (error) throw error;
 
-    const listings = (data || []).map(mapMarketListingRow);
+    const listings = (data || []).map(mapMarketListingRow).slice(0, limit);
     setLocalMarketListings(listings);
+    marketMemoryCache.set(cacheKey, { fetchedAt: Date.now(), listings: cloneJson(listings) });
     return listings;
   } catch (err) {
     console.warn('Falha ao consultar mercado no Supabase, usando cache local:', err);
-    const local = getLocalMarketListings();
-    return local.filter(listing => status === 'all' || listing.status === status);
+    const local = getLocalMarketListings()
+      .filter(listing => status === 'all' || listing.status === status)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .slice(0, limit);
+    marketMemoryCache.set(cacheKey, { fetchedAt: Date.now(), listings: cloneJson(local) });
+    return local;
   }
 }
 
 export async function dbCreateMarketListing(seller: User, stickerId: number, price: number): Promise<StickerMarketListing> {
+  marketMemoryCache.clear();
   const normalizedPrice = Math.round(Number(price));
   if (!Number.isFinite(normalizedPrice) || normalizedPrice < 10 || normalizedPrice > 300) {
     throw new Error('O preço precisa ficar entre 10 e 300 moedas.');
@@ -1216,6 +1383,7 @@ export async function dbCreateMarketListing(seller: User, stickerId: number, pri
 }
 
 export async function dbBuyMarketListing(listingId: string, buyer: User): Promise<StickerMarketListing> {
+  marketMemoryCache.clear();
   if (isSupabaseConfigured && supabaseClient) {
     const { data, error } = await promiseWithTimeout(
       supabaseClient.rpc('husf_buy_market_listing', {
@@ -1266,6 +1434,7 @@ export async function dbBuyMarketListing(listingId: string, buyer: User): Promis
 }
 
 export async function dbCancelMarketListing(listingId: string, sellerCpf: string): Promise<StickerMarketListing> {
+  marketMemoryCache.clear();
   if (isSupabaseConfigured && supabaseClient) {
     const { data, error } = await promiseWithTimeout(
       supabaseClient.rpc('husf_cancel_market_listing', {

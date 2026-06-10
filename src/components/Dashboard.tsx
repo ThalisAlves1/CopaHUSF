@@ -1,15 +1,15 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Home, LogOut, CheckCircle2, Building2, PlayCircle, Trophy, ShoppingBag, Coins, LayoutGrid, UserCheck, MessageSquare, Pill, Stethoscope, Droplets, ShieldAlert, ArrowLeft, BookOpen, Crown, User as UserIcon, AlertCircle, Zap, ArrowRightLeft, Search, ShieldCheck, Award, UserPlus, Trash2, Lock, Unlock, Upload, Image, Database, Wifi, WifiOff, Edit, X } from 'lucide-react';
 import { User, MetaProgress } from '../types';
-import { Store } from './Store';
-import { Quiz } from './Quiz';
-import { Trading } from './Trading';
-import { WelcomeScreen } from './WelcomeScreen';
-import { StudyMaterial } from './StudyMaterial';
+const Store = lazy(() => import('./Store').then(module => ({ default: module.Store })));
+const Quiz = lazy(() => import('./Quiz').then(module => ({ default: module.Quiz })));
+const Trading = lazy(() => import('./Trading').then(module => ({ default: module.Trading })));
+const WelcomeScreen = lazy(() => import('./WelcomeScreen').then(module => ({ default: module.WelcomeScreen })));
+const StudyMaterial = lazy(() => import('./StudyMaterial').then(module => ({ default: module.StudyMaterial })));
 import { getStoredUsers, formatCPF } from '../lib/auth';
 import { StickerDefinition, getStickerById, getAllStickers, getStoredStickers, saveStoredStickers } from '../lib/store';
-import { dbGetUsers, dbGetStickers, dbSaveSingleUser, dbDeleteUser, dbInsertSticker, dbUpdateSticker, dbDeleteSticker, dbSaveWholeCatalog, dbGetReleasedMetas, dbSaveReleasedMetas, subscribeToUsers, subscribeToStickers, subscribeToSettings, DB_DEFAULT_STICKERS, isSupabaseConfigured, lastSupabaseError } from '../lib/supabase';
+import { dbGetUsers, dbGetStickers, dbSaveSingleUser, dbDeleteUser, dbInsertSticker, dbUpdateSticker, dbDeleteSticker, dbSaveWholeCatalog, dbGetReleasedMetas, dbSaveReleasedMetas, subscribeToUsers, subscribeToStickers, subscribeToSettings, DB_DEFAULT_STICKERS, isSupabaseConfigured, lastSupabaseError, uploadStickerImageFile } from '../lib/supabase';
 import { StickerImage } from './StickerImage';
 import { appendActivityLog, createActivityEntry, formatActivityTime, getActivityBadgeClass, getActivityLog, getActivityTypeLabel } from '../lib/activity';
 
@@ -49,6 +49,18 @@ interface DashboardHistoryState {
 const TAB_VALUES: TabContent[] = ['inicio', 'desafios', 'album', 'loja', 'perfil', 'ranking', 'trocas', 'admin', 'estudo'];
 const ADMIN_SECTION_VALUES: AdminSection[] = ['overview', 'colaboradores', 'metas', 'figurinhas', 'monitoramento'];
 const MARKET_NEWS_STORAGE_PREFIX = 'husf_market_news_v1_seen';
+const MAX_STICKER_UPLOAD_BYTES = 1 * 1024 * 1024;
+const MAX_STICKER_SOURCE_BYTES = 8 * 1024 * 1024;
+const STICKER_IMAGE_MAX_DIMENSION = 700;
+const STICKER_IMAGE_QUALITY = 0.75;
+const RANKING_DISPLAY_LIMIT = 100;
+const ADMIN_USERS_FETCH_LIMIT = 1000;
+
+const LazyPanelFallback = () => (
+  <div className="bg-white border border-slate-100 rounded-3xl p-8 shadow-sm text-center text-slate-500 font-bold">
+    Carregando módulo...
+  </div>
+);
 
 function isTabContent(value: string | null): value is TabContent {
   return !!value && TAB_VALUES.includes(value as TabContent);
@@ -193,6 +205,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   const [newStickerRarity, setNewStickerRarity] = useState<'regular' | 'holografica' | 'lendaria' | 'suprema'>('regular');
   const [newStickerPage, setNewStickerPage] = useState<'trabalho' | 'evolucao' | 'hall'>('trabalho');
   const [newStickerImage, setNewStickerImage] = useState('');
+  const [newStickerFile, setNewStickerFile] = useState<File | null>(null);
   const [stickerError, setStickerError] = useState('');
   const [stickerSuccess, setStickerSuccess] = useState('');
   const [stickerSearch, setStickerSearch] = useState('');
@@ -221,51 +234,86 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     return () => window.clearTimeout(marketNewsTimer);
   }, [user?.cpf, user.isAdmin]);
 
-  const handleStickerFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const canvasToBlob = (canvas: HTMLCanvasElement, type: string, quality: number) => {
+    return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
+  };
+
+  const handleStickerFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const img = new Image();
-      img.onload = () => {
-        // Safe resize/compress to max 220px dimensions to avoid local storage quota exceeded errors
-        const maxDim = 220;
-        let width = img.width;
-        let height = img.height;
+    setStickerError('');
+    setStickerSuccess('');
 
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
+    try {
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Escolha um arquivo de imagem válido: WEBP, JPG ou PNG.');
+      }
 
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
+      if (file.size > MAX_STICKER_SOURCE_BYTES) {
+        throw new Error('Essa imagem está muito pesada. Use uma imagem com até 8 MB antes da compressão.');
+      }
 
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressed = canvas.toDataURL('image/jpeg', 0.7);
-          setNewStickerImage(compressed);
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Erro ao ler a imagem local.'));
+        reader.readAsDataURL(file);
+      });
+
+      const img = new window.Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Erro ao processar imagem. Tente outro arquivo PNG, JPG ou WEBP.'));
+        img.src = dataUrl;
+      });
+
+      // Redimensiona para manter qualidade boa no álbum, mas sem deixar o upload pesado.
+      const maxDim = STICKER_IMAGE_MAX_DIMENSION;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
         } else {
-          setNewStickerImage(reader.result as string);
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
         }
-      };
-      img.onerror = () => {
-        setStickerError('Erro ao processar imagem para compressão.');
-      };
-      img.src = reader.result as string;
-    };
-    reader.onerror = () => {
-      setStickerError('Erro ao ler a imagem local.');
-    };
-    reader.readAsDataURL(file);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Seu navegador não conseguiu preparar a imagem para upload.');
+
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const webpBlob = await canvasToBlob(canvas, 'image/webp', STICKER_IMAGE_QUALITY);
+      const finalBlob = webpBlob || await canvasToBlob(canvas, 'image/jpeg', STICKER_IMAGE_QUALITY);
+      if (!finalBlob) throw new Error('Não foi possível comprimir a imagem para upload.');
+      if (finalBlob.size > MAX_STICKER_UPLOAD_BYTES) {
+        throw new Error('Mesmo comprimida, a imagem passou de 1 MB. Tente uma imagem menor ou mais simples.');
+      }
+
+      const ext = webpBlob ? 'webp' : 'jpg';
+      const compressedFile = new File(
+        [finalBlob],
+        `${file.name.replace(/\.[^.]+$/, '') || 'figurinha'}.${ext}`,
+        { type: webpBlob ? 'image/webp' : 'image/jpeg' }
+      );
+
+      setNewStickerFile(compressedFile);
+      setNewStickerImage(URL.createObjectURL(compressedFile));
+      setStickerSuccess(`Imagem otimizada (${Math.round(compressedFile.size / 1024)} KB). Agora clique em salvar para enviar e aplicar no álbum.`);
+      setTimeout(() => setStickerSuccess(''), 3500);
+    } catch (err: any) {
+      setNewStickerFile(null);
+      setStickerError(err?.message || 'Erro ao preparar imagem para upload.');
+    }
   };
 
   const handleCreateSticker = async (e: React.FormEvent) => {
@@ -283,11 +331,15 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     try {
       if (editingStickerId !== null) {
         // Edit mode
+        const finalImage = newStickerFile
+          ? await uploadStickerImageFile(newStickerFile, editingStickerId)
+          : (newStickerImage.trim() || undefined);
+
         const updatedSticker: StickerDefinition = {
           id: editingStickerId,
           name,
           rarity: newStickerRarity,
-          image: newStickerImage.trim() || undefined,
+          image: finalImage,
           page: newStickerPage
         };
 
@@ -295,6 +347,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
         setStickerRefresh(prev => prev + 1);
         setNewStickerName('');
         setNewStickerImage('');
+        setNewStickerFile(null);
         setEditingStickerId(null);
         setCustomStickerId('');
         setStickerSuccess(`Figurinha #${editingStickerId} "${name}" atualizada com sucesso!`);
@@ -319,11 +372,15 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
           targetId = parsedId;
         }
 
+        const finalImage = newStickerFile
+          ? await uploadStickerImageFile(newStickerFile, targetId)
+          : (newStickerImage.trim() || undefined);
+
         const newSticker: StickerDefinition = {
           id: targetId,
           name,
           rarity: newStickerRarity,
-          image: newStickerImage.trim() || undefined,
+          image: finalImage,
           page: newStickerPage
         };
 
@@ -331,13 +388,14 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
         setStickerRefresh(prev => prev + 1);
         setNewStickerName('');
         setNewStickerImage('');
+        setNewStickerFile(null);
         setCustomStickerId('');
         setStickerSuccess(`Figurinha "${name}" cadastrada com sucesso!`);
         setTimeout(() => setStickerSuccess(''), 5000);
       }
     } catch (err: any) {
       console.error(err);
-      setStickerError(`Erro ao sincronizar figurinha na nuvem: ${err.message || 'Verifique sua conexão ou tente usar uma imagem menor.'}`);
+      setStickerError(`Erro ao salvar figurinha: ${err.message || 'Verifique a conexão, o bucket husf-stickers no Supabase Storage ou tente uma imagem menor.'}`);
     } finally {
       setIsCreatingSticker(false);
     }
@@ -352,7 +410,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     setStickerError('');
     setStickerSuccess('');
     try {
-      const current = await dbGetStickers();
+      const current = await dbGetStickers({ force: true });
       const merged = [...current];
       for (const def of DB_DEFAULT_STICKERS) {
         if (!merged.some(m => m.id === def.id)) {
@@ -391,7 +449,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   };
 
   const handleGiftSticker = async (targetCpf: string, stickerId: number) => {
-    const currentUsers = await dbGetUsers();
+    const currentUsers = await dbGetUsers({ force: true, maxRows: ADMIN_USERS_FETCH_LIMIT });
     let stickerName = `Figurinha #${stickerId}`;
     const foundSticker = getStickerById(stickerId);
     if (foundSticker) {
@@ -482,27 +540,35 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     persistReleasedMetas([]);
   };
 
-  // Fetch and synchronize fresh statistics from Supabase Database asynchronously
+  // Fetch and synchronize fresh statistics from Supabase Database asynchronously.
+  // Modo econômico: não puxa usuários/figurinhas do banco a cada clique de aba.
   useEffect(() => {
     let active = true;
 
     async function loadFreshData() {
-      try {
-        const freshUsers = await dbGetUsers();
-        if (active) {
-          setUsersList(freshUsers);
+      const needsUsers = activeTab === 'inicio' || activeTab === 'ranking' || activeTab === 'admin';
+      const needsStickers = activeTab === 'inicio' || activeTab === 'album' || activeTab === 'loja' || activeTab === 'trocas' || activeTab === 'admin';
+
+      if (needsUsers) {
+        try {
+          const freshUsers = await dbGetUsers({ force: adminRefresh > 0, maxRows: ADMIN_USERS_FETCH_LIMIT });
+          if (active) {
+            setUsersList(freshUsers);
+          }
+        } catch (e) {
+          console.warn('Dashboard failed to parse fresh database user records:', e);
         }
-      } catch (e) {
-        console.warn('Dashboard failed to parse fresh database user records:', e);
       }
 
-      try {
-        await dbGetStickers();
-        if (active) {
-          setStickerRefresh(prev => prev + 1);
+      if (needsStickers) {
+        try {
+          await dbGetStickers({ force: adminRefresh > 0 });
+          if (active) {
+            setStickerRefresh(prev => prev + 1);
+          }
+        } catch (e) {
+          console.warn('Dashboard failed to parse fresh database stickers catalog:', e);
         }
-      } catch (e) {
-        console.warn('Dashboard failed to parse fresh database stickers catalog:', e);
       }
     }
 
@@ -516,7 +582,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
 
     const refreshUsersFromCloud = async () => {
       try {
-        const freshUsers = await dbGetUsers();
+        const freshUsers = await dbGetUsers({ force: true, maxRows: ADMIN_USERS_FETCH_LIMIT });
         if (!active) return;
 
         setUsersList(freshUsers);
@@ -545,7 +611,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
 
     const refreshStickersFromCloud = async () => {
       try {
-        await dbGetStickers();
+        await dbGetStickers({ force: true });
         if (active) setStickerRefresh(prev => prev + 1);
       } catch (err) {
         console.warn('Erro ao atualizar figurinhas via realtime:', err);
@@ -654,6 +720,11 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
         return b.totalCoins - a.totalCoins;
       });
   };
+  const individualRankingList = useMemo(() => computeIndividualRanking(), [usersList]);
+  const sectorRankingList = useMemo(() => computeSectorRanking(), [usersList, sectorRankingMetric, user.isAdmin]);
+  const visibleIndividualRanking = useMemo(() => individualRankingList.slice(0, RANKING_DISPLAY_LIMIT), [individualRankingList]);
+  const visibleSectorRanking = useMemo(() => sectorRankingList.slice(0, RANKING_DISPLAY_LIMIT), [sectorRankingList]);
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 12) return 'Bom dia';
@@ -898,7 +969,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       return;
     }
 
-    const currentUsers = await dbGetUsers();
+    const currentUsers = await dbGetUsers({ force: true, maxRows: ADMIN_USERS_FETCH_LIMIT });
     if (currentUsers.some(u => u.cpf === formattedCpf)) {
       setNewRegError(`O CPF ${formattedCpf} já está cadastrado para o colaborador ${currentUsers.find(u => u.cpf === formattedCpf)?.name || ''}.`);
       return;
@@ -956,7 +1027,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     }
 
     const lines = txt.split('\n');
-    const currentUsers = await dbGetUsers();
+    const currentUsers = await dbGetUsers({ force: true, maxRows: ADMIN_USERS_FETCH_LIMIT });
     
     const newAddedUsers: User[] = [];
     const duplicates: string[] = [];
@@ -1046,7 +1117,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   };
 
   const handleRewardUser = async (targetCpf: string, amount: number) => {
-    const currentUsers = await dbGetUsers();
+    const currentUsers = await dbGetUsers({ force: true, maxRows: ADMIN_USERS_FETCH_LIMIT });
     let updatedTargetUser: User | null = null;
     const updated = currentUsers.map(u => {
       if (u.cpf === targetCpf) {
@@ -1088,7 +1159,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       setNewRegError('Você não pode excluir o seu próprio usuário administrador logado!');
       return;
     }
-    const currentUsers = await dbGetUsers();
+    const currentUsers = await dbGetUsers({ force: true, maxRows: ADMIN_USERS_FETCH_LIMIT });
     const updated = currentUsers.filter(u => u.cpf !== targetCpf);
     await dbDeleteUser(targetCpf);
     setUsersList(updated);
@@ -1355,7 +1426,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     });
 
     const sortedMetasByEngagement = [...metaReports].sort((a, b) => b.engagementRate - a.engagementRate || b.participants - a.participants);
-    const individualRanking = computeIndividualRanking();
+    const individualRanking = individualRankingList;
     const riskCollaborators = collaboratorStats
       .filter(item => item.engagement.aproveitamento < 50 || !item.isActiveThisWeek)
       .sort((a, b) => a.engagement.aproveitamento - b.engagement.aproveitamento)
@@ -1378,7 +1449,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       attentionMeta: sortedMetasByEngagement[sortedMetasByEngagement.length - 1],
       riskCollaborators
     };
-  }, [usersList]);
+  }, [usersList, individualRankingList]);
 
 
   return (
@@ -1524,7 +1595,9 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
             >
-              <WelcomeScreen user={user} onNavigate={handleTabChange} summary={collaboratorHomeSummary} />
+              <Suspense fallback={<LazyPanelFallback />}>
+                <WelcomeScreen user={user} onNavigate={handleTabChange} summary={collaboratorHomeSummary} />
+              </Suspense>
             </motion.div>
           )}
 
@@ -1758,7 +1831,9 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
             >
-              <Store coins={user.coins} onBuyPack={onBuyPack} />
+              <Suspense fallback={<LazyPanelFallback />}>
+                <Store coins={user.coins} onBuyPack={onBuyPack} />
+              </Suspense>
             </motion.div>
           )}
 
@@ -1896,7 +1971,9 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                animate={{ opacity: 1, y: 0 }}
                exit={{ opacity: 0, y: -10 }}
             >
-              <Trading user={user} onTradeComplete={onTradeComplete} onUserUpdate={onUpdateUser} initialMode={tradingInitialMode} />
+              <Suspense fallback={<LazyPanelFallback />}>
+                <Trading user={user} onTradeComplete={onTradeComplete} onUserUpdate={onUpdateUser} initialMode={tradingInitialMode} />
+              </Suspense>
             </motion.div>
           )}
 
@@ -1914,7 +1991,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                   <Crown className="w-8 h-8 text-amber-300" />
                   Ranking HUSF
                 </h1>
-                <p className="text-brand-50 relative z-10">Confira a classificação dos colaboradores e setores do hospital.</p>
+                <p className="text-brand-50 relative z-10">Confira a classificação dos colaboradores e setores do hospital. Exibição otimizada com Top 100 para melhor desempenho.</p>
               </div>
 
               <div className="flex border-b border-slate-200">
@@ -1946,7 +2023,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                     </div>
 
                     <div className="flex flex-col gap-3">
-                      {computeIndividualRanking().map((rankedUser, index) => (
+                      {visibleIndividualRanking.map((rankedUser, index) => (
                         <div key={rankedUser.cpf} className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border ${index === 0 ? 'bg-amber-50 border-amber-200' : index === 1 ? 'bg-slate-50 border-slate-200' : index === 2 ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-100'}`}>
                           <div className={`w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center font-bold text-sm sm:text-lg rounded-full shrink-0 ${index === 0 ? 'bg-amber-400 text-white shadow-md' : index === 1 ? 'bg-slate-300 text-slate-700 shadow-sm' : index === 2 ? 'bg-orange-300 text-orange-800 shadow-sm' : 'bg-slate-100 text-slate-500'}`}>
                             {index + 1}
@@ -2020,7 +2097,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                     )}
 
                     <div className="flex flex-col gap-3">
-                      {computeSectorRanking().map((sector, index) => {
+                      {visibleSectorRanking.map((sector, index) => {
                         const showTotalWalletCoins = user.isAdmin && sectorRankingMetric === 'total';
                         return (
                           <div key={sector.name} className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border ${index === 0 ? 'bg-amber-50/70 border-amber-200' : index === 1 ? 'bg-slate-50/70 border-slate-200' : index === 2 ? 'bg-orange-50/70 border-orange-200' : 'bg-white border-slate-100'}`}>
@@ -2976,7 +3053,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       <div className="bg-white p-3 rounded-xl border border-purple-100 flex flex-col justify-between">
                         <div>
                           <p className="font-extrabold text-purple-800 text-[11px] uppercase tracking-wider mb-1">🚀 1. Pelo Painel Administrativo (Super Fácil)</p>
-                          <p className="text-[10.5px] text-slate-500 font-medium leading-normal">Basta encontrar a figurinha na tabela de <strong>"Figurinhas Ativas"</strong> ao lado, clicar em <strong>"Editar"</strong>, selecionar qualquer imagem do seu computador (PC) ou colar um link da internet, e clicar em <strong>"Salvar Alterações"</strong>.</p>
+                          <p className="text-[10.5px] text-slate-500 font-medium leading-normal">Basta encontrar a figurinha na tabela de <strong>"Figurinhas Ativas"</strong>, clicar em <strong>"Editar"</strong>, selecionar uma imagem do computador ou colar um link da internet, e clicar em <strong>"Salvar Alterações"</strong>. O arquivo será enviado para o Supabase Storage automaticamente.</p>
                         </div>
                         <p className="text-[10px] text-purple-700 font-bold mt-2 font-mono">⚡ Atualiza em tempo real para todos!</p>
                       </div>
@@ -3089,7 +3166,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                               />
                               <Upload className="w-5 h-5 text-slate-400 mb-1" />
                               <span className="text-[10.5px] text-slate-500 font-bold text-center">Clique para escolher imagem do seu PC</span>
-                              <span className="text-[8px] text-slate-400 mt-0.5 uppercase tracking-wider font-extrabold text-purple-700">Compressão automática para imagem leve</span>
+                              <span className="text-[8px] text-slate-400 mt-0.5 uppercase tracking-wider font-extrabold text-purple-700">Upload real + compressão automática</span>
                             </div>
                           </div>
 
@@ -3100,7 +3177,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                               type="text" 
                               placeholder="Ex: celso-conexao-meta2.png ou https://imgur.com/foto.jpg"
                               value={newStickerImage}
-                              onChange={(e) => setNewStickerImage(e.target.value)}
+                              onChange={(e) => { setNewStickerFile(null); setNewStickerImage(e.target.value); }}
                               className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-purple-500 font-medium transition-colors"
                             />
                             <p className="text-[9px] text-slate-400 leading-normal">
@@ -3116,10 +3193,10 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                               </div>
                               <div className="min-w-0 flex-1">
                                 <span className="block text-[11px] text-purple-950 font-bold max-w-full safe-text">Visualização ativa:</span>
-                                <span className="block text-[9.5px] text-slate-500 safe-text max-w-full font-mono">{newStickerImage.startsWith('data:') ? '✓ Imagem carregada do PC' : newStickerImage}</span>
+                                <span className="block text-[9.5px] text-slate-500 safe-text max-w-full font-mono">{newStickerFile ? '✓ Imagem pronta para upload no Supabase Storage' : newStickerImage}</span>
                                 <button 
                                   type="button" 
-                                  onClick={() => setNewStickerImage('')} 
+                                  onClick={() => { setNewStickerImage(''); setNewStickerFile(null); }} 
                                   className="text-[10px] text-rose-600 font-bold hover:underline"
                                 >
                                   Remover/Limpar imagem
@@ -3160,6 +3237,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                                 setEditingStickerId(null);
                                 setNewStickerName('');
                                 setNewStickerImage('');
+                                setNewStickerFile(null);
                                 setCustomStickerId('');
                               }}
                               className="w-full text-slate-500 bg-white border border-slate-200/80 hover:bg-slate-100/50 hover:text-slate-800 font-extrabold uppercase text-[10px] tracking-wider py-2.5 rounded-xl transition-colors cursor-pointer active:scale-95"
@@ -3258,6 +3336,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                                         setNewStickerRarity(st.rarity);
                                         setNewStickerPage(stPage);
                                         setNewStickerImage(st.image || '');
+                                        setNewStickerFile(null);
                                         // Scroll to form smoothly
                                         document.getElementById('sticker-form-container')?.scrollIntoView({ behavior: 'smooth' });
                                       }}

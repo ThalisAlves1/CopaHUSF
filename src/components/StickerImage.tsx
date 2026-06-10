@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { UserCheck, MessageSquare, Pill, Stethoscope, Droplets, ShieldAlert, Crown, ShieldCheck, Zap, Award, Trophy } from 'lucide-react';
 
 interface StickerImageProps {
@@ -11,6 +11,8 @@ interface StickerImageProps {
 export function StickerImage({ id, name, className = "", customImage }: StickerImageProps) {
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isVisible, setIsVisible] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const candidateSources = useMemo(() => {
     const list: string[] = [];
@@ -52,6 +54,33 @@ export function StickerImage({ id, name, className = "", customImage }: StickerI
   }, [id, customImage]);
 
   useEffect(() => {
+    const element = containerRef.current;
+    if (!element) {
+      setIsVisible(true);
+      return;
+    }
+
+    if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
+      setIsVisible(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '350px 0px' }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!isVisible) return;
     let active = true;
     setLoading(true);
     setLoadedSrc(null);
@@ -93,7 +122,7 @@ export function StickerImage({ id, name, className = "", customImage }: StickerI
     return () => {
       active = false;
     };
-  }, [candidateSources]);
+  }, [candidateSources, isVisible]);
 
   const getStickerDetails = (stickerId: number) => {
     switch (stickerId) {
@@ -260,12 +289,15 @@ export function StickerImage({ id, name, className = "", customImage }: StickerI
         alt={name}
         className={`flex-1 w-full min-h-[110px] sm:min-h-[140px] object-contain drop-shadow-md mb-2 pointer-events-none mt-1 ${className}`}
         referrerPolicy="no-referrer"
+        loading="lazy"
+        decoding="async"
       />
     );
   }
 
   return (
     <div 
+      ref={containerRef}
       className={`flex-1 w-full min-h-[110px] sm:min-h-[140px] rounded-xl flex flex-col items-center justify-center p-2 relative overflow-hidden bg-gradient-to-b ${details.bgColor} select-none border-2 ${details.borderColor}`}
       style={{ contentVisibility: 'auto' }}
     >

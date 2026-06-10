@@ -245,7 +245,7 @@ export function Trading({ user, onTradeComplete, onUserUpdate, initialMode = 'tr
   const refreshMarketListings = async () => {
     setMarketLoading(true);
     try {
-      const listings = await dbGetMarketListings('active');
+      const listings = await dbGetMarketListings('active', { force: true, limit: 100 });
       setMarketListings(listings);
       setMarketError('');
     } catch (err) {
@@ -258,10 +258,10 @@ export function Trading({ user, onTradeComplete, onUserUpdate, initialMode = 'tr
   useEffect(() => {
     let active = true;
 
-    const load = async () => {
+    const load = async (force = false) => {
       setMarketLoading(true);
       try {
-        const listings = await dbGetMarketListings('active');
+        const listings = await dbGetMarketListings('active', { force, limit: 100 });
         if (active) {
           setMarketListings(listings);
           setMarketError('');
@@ -273,8 +273,8 @@ export function Trading({ user, onTradeComplete, onUserUpdate, initialMode = 'tr
       }
     };
 
-    load();
-    const subscription = subscribeToMarket(() => load());
+    load(false);
+    const subscription = subscribeToMarket(() => load(true));
 
     return () => {
       active = false;
