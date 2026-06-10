@@ -65,6 +65,8 @@ export function Trading({ user, onTradeComplete, onUserUpdate, initialMode = 'tr
     .filter(([_, count]) => count > 1)
     .map(([id]) => parseInt(id));
 
+  const marketSellableDuplicates = duplicates.filter(id => getStickerById(id)?.rarity !== 'suprema');
+
   const [rarityFilter, setRarityFilter] = useState<StickerRarity | 'all'>('all');
 
   const filteredDuplicates = duplicates.filter(id => {
@@ -309,6 +311,12 @@ export function Trading({ user, onTradeComplete, onUserUpdate, initialMode = 'tr
       return;
     }
 
+    const stickerToSell = getStickerById(sellStickerId);
+    if (stickerToSell?.rarity === 'suprema') {
+      setMarketError('A figurinha Suprema é extremamente rara e não pode ser vendida no mercado. Ela só sai no Pacote Grandes Finais ou pelo Admin.');
+      return;
+    }
+
     setProcessingListingId('create');
     try {
       const created = await dbCreateMarketListing(user, sellStickerId, price);
@@ -340,6 +348,12 @@ export function Trading({ user, onTradeComplete, onUserUpdate, initialMode = 'tr
 
     if (listing.sellerCpf === user.cpf) {
       setMarketError('Você não pode comprar uma figurinha anunciada por você.');
+      return;
+    }
+
+    const listedSticker = getStickerById(listing.stickerId);
+    if (listedSticker?.rarity === 'suprema') {
+      setMarketError('A figurinha Suprema não pode ser comprada diretamente no mercado. Ela só sai no Pacote Grandes Finais ou pelo Admin.');
       return;
     }
 
@@ -442,6 +456,7 @@ export function Trading({ user, onTradeComplete, onUserUpdate, initialMode = 'tr
             </div>
             <h3 className="text-xl sm:text-2xl font-black text-slate-900 font-[Space_Grotesk] leading-tight">Venda repetidas e compre figurinhas que faltam</h3>
             <p className="text-sm text-slate-600 mt-2 max-w-2xl">Aqui a figurinha anunciada fica reservada. Se vender, o comprador recebe a figurinha e o vendedor recebe as moedas. Se cancelar, ela volta para o álbum.</p>
+              <p className="text-xs font-black text-yellow-700 mt-2">Regra de raridade: a Suprema não pode ser anunciada nem comprada diretamente no mercado.</p>
           </div>
           <div className="grid grid-cols-2 gap-3 min-w-[220px]">
             <div className="rounded-2xl bg-white/85 border border-white p-4 shadow-sm">
@@ -472,21 +487,21 @@ export function Trading({ user, onTradeComplete, onUserUpdate, initialMode = 'tr
             </div>
             <div>
               <h4 className="font-black text-slate-900 font-[Space_Grotesk] leading-tight">Anunciar repetida</h4>
-              <p className="text-xs text-slate-500">A última unidade fica protegida no álbum.</p>
+              <p className="text-xs text-slate-500">A última unidade fica protegida. Suprema não pode ser vendida.</p>
             </div>
           </div>
 
-          {duplicates.length === 0 ? (
+          {marketSellableDuplicates.length === 0 ? (
             <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-              <p className="font-bold text-slate-600 text-sm">Você ainda não tem repetidas para vender.</p>
-              <p className="text-xs text-slate-400 mt-1">Compre pacotes ou complete metas para conseguir novas figurinhas.</p>
+              <p className="font-bold text-slate-600 text-sm">Você ainda não tem repetidas vendáveis.</p>
+              <p className="text-xs text-slate-400 mt-1">Figurinhas Supremas ficam bloqueadas no mercado para manter a raridade.</p>
             </div>
           ) : (
             <div className="space-y-4">
               <div>
                 <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Escolha a repetida</label>
                 <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-3 gap-2 max-h-[260px] overflow-y-auto pr-1">
-                  {duplicates.map(id => {
+                  {marketSellableDuplicates.map(id => {
                     const sticker = getStickerById(id);
                     const selected = sellStickerId === id;
                     return (

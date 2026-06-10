@@ -159,8 +159,8 @@ export const PACKAGES: PackageDefinition[] = [
     category: 'Premium',
     price: 150,
     color: 'bg-slate-900',
-    description: 'A melhor oportunidade para caçar a Suprema Bola de Ouro.',
-    guaranteed: '3 Figurinhas Mistas Premium'
+    description: 'Único pacote com chance da Suprema Bola de Ouro. A chance é raríssima: 1% por pacote.',
+    guaranteed: '1 chance Suprema de 1% + 2 Mistas Premium'
   }
 ];
 
@@ -191,21 +191,24 @@ export const openPackage = (packageId: string): StickerDefinition[] => {
       results.push(gachaRoll({ regular: 100, holografica: 0, lendaria: 0, suprema: 0 }));
     }
   } else if (packageId === 'elite') {
-    // 80% reg, 18% holo, 1.9% lend, 0.1% sup
+    // Pacote intermediário: não libera a Suprema, para manter a raridade extrema.
+    // 80% regular, 18% holográfica, 2% lendária, 0% suprema
     for (let i = 0; i < 3; i++) {
-      results.push(gachaRoll({ regular: 80, holografica: 18, lendaria: 1.9, suprema: 0.1 }));
+      results.push(gachaRoll({ regular: 80, holografica: 18, lendaria: 2, suprema: 0 }));
     }
   } else if (packageId === 'reliquia') {
-    // Slot 1: 100% Lendaria
+    // Slot 1: 100% lendária. A Suprema não sai neste pacote.
     results.push(gachaRoll({ regular: 0, holografica: 0, lendaria: 100, suprema: 0 }));
-    // Slot 2 and 3: 85% Reg, 14.5% Holo, 0% Lend, 0.5% Sup
+    // Slot 2 e 3: mistas sem Suprema
     for (let i = 0; i < 2; i++) {
-      results.push(gachaRoll({ regular: 85, holografica: 14.5, lendaria: 0, suprema: 0.5 }));
+      results.push(gachaRoll({ regular: 84, holografica: 15, lendaria: 1, suprema: 0 }));
     }
   } else if (packageId === 'final') {
-    // 45% reg, 40% holo, 12% lend, 3% sup
-    for (let i = 0; i < 3; i++) {
-      results.push(gachaRoll({ regular: 45, holografica: 40, lendaria: 12, suprema: 3 }));
+    // Único pacote com Suprema. Chance total de 1% por pacote: apenas o primeiro slot pode sortear Suprema.
+    results.push(gachaRoll({ regular: 50, holografica: 35, lendaria: 14, suprema: 1 }));
+    // Outros dois slots premium sem Suprema, para não multiplicar a chance real por pacote.
+    for (let i = 0; i < 2; i++) {
+      results.push(gachaRoll({ regular: 60, holografica: 32, lendaria: 8, suprema: 0 }));
     }
   }
   

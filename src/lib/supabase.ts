@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { User } from '../types';
-import { StickerDefinition, StickerRarity } from './store';
+import { StickerDefinition, StickerRarity, getStickerById } from './store';
 import { embedActivityLogInProgress, getActivityLog } from './activity';
 
 /*
@@ -1345,6 +1345,11 @@ export async function dbCreateMarketListing(seller: User, stickerId: number, pri
     throw new Error('Você só pode vender figurinhas repetidas. A última unidade fica protegida no álbum.');
   }
 
+  const sticker = getStickerById(stickerId);
+  if (sticker?.rarity === 'suprema') {
+    throw new Error('A figurinha Suprema é extremamente rara e não pode ser vendida no mercado. Ela só sai no Pacote Grandes Finais ou pelo Admin.');
+  }
+
   if (isSupabaseConfigured && supabaseClient) {
     const { data, error } = await promiseWithTimeout(
       supabaseClient.rpc('husf_create_market_listing', {
@@ -1385,6 +1390,23 @@ export async function dbCreateMarketListing(seller: User, stickerId: number, pri
 export async function dbBuyMarketListing(listingId: string, buyer: User): Promise<StickerMarketListing> {
   marketMemoryCache.clear();
   if (isSupabaseConfigured && supabaseClient) {
+    const { data: listingRow } = await promiseWithTimeout(
+      supabaseClient
+        .from('husf_sticker_market')
+        .select('sticker_id,status')
+        .eq('id', listingId)
+        .maybeSingle() as any,
+      10000
+    ) as any;
+
+    if (listingRow) {
+      if (listingRow.status !== 'active') throw new Error('Essa figurinha não está mais disponível.');
+      const sticker = getStickerById(Number(listingRow.sticker_id));
+      if (sticker?.rarity === 'suprema') {
+        throw new Error('A figurinha Suprema não pode ser comprada diretamente no mercado. Ela só sai no Pacote Grandes Finais ou pelo Admin.');
+      }
+    }
+
     const { data, error } = await promiseWithTimeout(
       supabaseClient.rpc('husf_buy_market_listing', {
         p_listing_id: listingId,
@@ -1401,6 +1423,12 @@ export async function dbBuyMarketListing(listingId: string, buyer: User): Promis
   const listing = listings.find(item => item.id === listingId);
   if (!listing || listing.status !== 'active') throw new Error('Essa figurinha não está mais disponível.');
   if (listing.sellerCpf === buyer.cpf) throw new Error('Você não pode comprar seu próprio anúncio.');
+
+  const sticker = getStickerById(listing.stickerId);
+  if (sticker?.rarity === 'suprema') {
+    throw new Error('A figurinha Suprema não pode ser comprada diretamente no mercado. Ela só sai no Pacote Grandes Finais ou pelo Admin.');
+  }
+
   if ((buyer.coins || 0) < listing.price) throw new Error('Saldo insuficiente para comprar essa figurinha.');
 
   const seller = await dbFindUserByCpf(listing.sellerCpf);
