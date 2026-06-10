@@ -246,7 +246,7 @@ export const normalizeCpf = (value: string | number | null | undefined): string 
   return String(value || '').replace(/\D/g, '');
 };
 
-function mapSupabaseUserRow(row: any): User {
+export function mapSupabaseUserRow(row: any): User {
   const cleanCpf = normalizeCpf(row?.cpf);
   const isThisAdmin = cleanCpf === '13683235616' || cleanCpf === '11111111111' || !!row?.is_admin;
   const progress = typeof row?.progress === 'object' && row.progress !== null ? row.progress : {};
@@ -386,10 +386,11 @@ export const DB_DEFAULT_STICKERS: StickerDefinition[] = [
 
 // Helper to prevent database queries from hanging indefinitely if network/firewall/CORS is failing
 const SUPABASE_TIMEOUT_MS = 12000;
-const USERS_CACHE_TTL_MS = 60_000;
+const USERS_CACHE_TTL_MS = 180_000;
 const STICKERS_CACHE_TTL_MS = 120_000;
 const MARKET_CACHE_TTL_MS = 45_000;
 const MAX_USERS_FETCH_ROWS = 1000;
+const USERS_QUERY_TIMEOUT_MS = 15000;
 const MAX_MARKET_LISTINGS = 100;
 
 let usersMemoryCache: User[] | null = null;
@@ -414,6 +415,30 @@ function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs = SUPABASE_TIMEOUT
       }
     );
   });
+}
+
+
+export async function dbPingSupabase(): Promise<boolean> {
+  if (!isSupabaseConfigured || !supabaseClient) return false;
+
+  try {
+    const { data, error } = await promiseWithTimeout(
+      supabaseClient.rpc('husf_ping') as any,
+      7000
+    ) as any;
+
+    if (error) throw error;
+    lastSupabaseError = null;
+    return data === 'ok';
+  } catch (err: any) {
+    // Se o SQL novo ainda não foi rodado, não transforma a ausência do ping em erro principal do app.
+    const message = String(err?.message || err || '');
+    if (message.toLowerCase().includes('husf_ping') || message.toLowerCase().includes('function')) {
+      return false;
+    }
+    lastSupabaseError = message;
+    return false;
+  }
 }
 
 function isCacheFresh(fetchedAt: number, ttl: number) {
@@ -569,8 +594,9 @@ export async function dbGetUsers(options: { force?: boolean; maxRows?: number } 
   try {
     let allData: any[] = [];
     let page = 0;
-    const pageSize = 250;
     const maxRows = Math.max(50, Math.min(options.maxRows || MAX_USERS_FETCH_ROWS, MAX_USERS_FETCH_ROWS));
+    // Busca até 1000 colaboradores em uma única chamada para evitar várias requisições lentas no painel admin.
+    const pageSize = maxRows;
     let hasMore = true;
 
     while (hasMore && allData.length < maxRows) {
@@ -581,7 +607,8 @@ export async function dbGetUsers(options: { force?: boolean; maxRows?: number } 
           .from('husf_users')
           .select('cpf,name,sector,coins,stickers,progress,is_admin,updated_at')
           .order('name', { ascending: true })
-          .range(from, to) as any
+          .range(from, to) as any,
+        USERS_QUERY_TIMEOUT_MS
       ) as any;
 
       if (error) throw error;
@@ -724,15 +751,16 @@ export async function dbSaveSingleUser(user: User): Promise<void> {
           progress: embedActivityLogInProgress(user),
           is_admin: !!user.isAdmin,
           updated_at: user.updatedAt || new Date().toISOString()
-        }, { onConflict: 'cpf' }) as any
+        }, { onConflict: 'cpf' }) as any,
+      8000
     ) as any;
 
     if (error) throw error;
     lastSupabaseError = null;
   } catch (err) {
+    // O usuário já foi salvo no cache local acima. Não travamos a tela quando a nuvem está lenta.
     lastSupabaseError = err instanceof Error ? err.message : String(err);
-    console.error(`Failed to sync individual user ${user.cpf} to Supabase:`, err);
-    throw err;
+    console.warn(`Sincronização em nuvem lenta/falhou para o usuário ${user.cpf}; mantendo cache local:`, err);
   }
 }
 
@@ -1315,7 +1343,7 @@ export async function dbGetMarketListings(status: 'active' | 'sold' | 'cancelled
       query = query.eq('status', status);
     }
 
-    const { data, error } = await promiseWithTimeout(query, 10000) as any;
+    const { data, error } = await promiseWithTimeout(query, 15000) as any;
     if (error) throw error;
 
     const listings = (data || []).map(mapMarketListingRow).slice(0, limit);
@@ -1396,7 +1424,7 @@ export async function dbBuyMarketListing(listingId: string, buyer: User): Promis
         .select('sticker_id,status')
         .eq('id', listingId)
         .maybeSingle() as any,
-      10000
+      15000
     ) as any;
 
     if (listingRow) {

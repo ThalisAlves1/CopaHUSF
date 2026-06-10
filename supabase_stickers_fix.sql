@@ -1,6 +1,20 @@
 -- COPA DAS METAS / HUSF - Correção das imagens das figurinhas
 -- Cole no Supabase > SQL Editor e clique em Run.
 
+
+
+-- Ping leve para o app testar a conexão sem puxar tabelas pesadas.
+CREATE OR REPLACE FUNCTION public.husf_ping()
+RETURNS text
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT 'ok'::text;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.husf_ping() TO anon;
+GRANT EXECUTE ON FUNCTION public.husf_ping() TO authenticated;
+
 -- Garante que o catálogo padrão tenha caminhos leves (.webp) e inclui a figurinha 18.
 INSERT INTO public.husf_stickers (id, name, rarity, image)
 VALUES
@@ -85,5 +99,42 @@ DO $$ BEGIN
       ON public.husf_sticker_market (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS husf_sticker_market_seller_idx
       ON public.husf_sticker_market (seller_cpf);
+  END IF;
+END $$;
+
+-- Regra de raridade extrema: a figurinha Suprema não pode ser vendida/comprada diretamente no mercado.
+-- Ela deve sair somente no Pacote Grandes Finais, com chance de 1%, ou ser concedida manualmente pelo Admin.
+CREATE OR REPLACE FUNCTION public.husf_prevent_suprema_market_listing()
+RETURNS trigger AS $$
+DECLARE
+  v_rarity TEXT;
+BEGIN
+  SELECT rarity INTO v_rarity
+  FROM public.husf_stickers
+  WHERE id = NEW.sticker_id;
+
+  IF COALESCE(v_rarity, '') LIKE '%suprema%' AND NEW.status = 'active' THEN
+    RAISE EXCEPTION 'A figurinha Suprema não pode ser anunciada no mercado.';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DO $$
+BEGIN
+  IF to_regclass('public.husf_sticker_market') IS NOT NULL THEN
+    UPDATE public.husf_sticker_market AS market
+    SET status = 'cancelled'
+    FROM public.husf_stickers AS sticker
+    WHERE market.sticker_id = sticker.id
+      AND sticker.rarity LIKE '%suprema%'
+      AND market.status = 'active';
+
+    DROP TRIGGER IF EXISTS husf_prevent_suprema_market_listing_trg ON public.husf_sticker_market;
+    CREATE TRIGGER husf_prevent_suprema_market_listing_trg
+      BEFORE INSERT OR UPDATE OF sticker_id, status ON public.husf_sticker_market
+      FOR EACH ROW
+      EXECUTE FUNCTION public.husf_prevent_suprema_market_listing();
   END IF;
 END $$;

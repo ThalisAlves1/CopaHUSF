@@ -9,7 +9,7 @@ const WelcomeScreen = lazy(() => import('./WelcomeScreen').then(module => ({ def
 const StudyMaterial = lazy(() => import('./StudyMaterial').then(module => ({ default: module.StudyMaterial })));
 import { getStoredUsers, formatCPF } from '../lib/auth';
 import { StickerDefinition, getStickerById, getAllStickers, getStoredStickers, saveStoredStickers } from '../lib/store';
-import { dbGetUsers, dbGetStickers, dbSaveSingleUser, dbDeleteUser, dbInsertSticker, dbUpdateSticker, dbDeleteSticker, dbSaveWholeCatalog, dbGetReleasedMetas, dbSaveReleasedMetas, subscribeToUsers, subscribeToStickers, subscribeToSettings, DB_DEFAULT_STICKERS, isSupabaseConfigured, lastSupabaseError, uploadStickerImageFile } from '../lib/supabase';
+import { dbGetUsers, dbGetStickers, dbSaveSingleUser, dbDeleteUser, dbInsertSticker, dbUpdateSticker, dbDeleteSticker, dbSaveWholeCatalog, dbGetReleasedMetas, dbSaveReleasedMetas, subscribeToUsers, subscribeToStickers, subscribeToSettings, DB_DEFAULT_STICKERS, isSupabaseConfigured, lastSupabaseError, uploadStickerImageFile, mapSupabaseUserRow, normalizeCpf } from '../lib/supabase';
 import { StickerImage } from './StickerImage';
 import { appendActivityLog, createActivityEntry, formatActivityTime, getActivityBadgeClass, getActivityLog, getActivityTypeLabel } from '../lib/activity';
 
@@ -48,13 +48,13 @@ interface DashboardHistoryState {
 
 const TAB_VALUES: TabContent[] = ['inicio', 'desafios', 'album', 'loja', 'perfil', 'ranking', 'trocas', 'admin', 'estudo'];
 const ADMIN_SECTION_VALUES: AdminSection[] = ['overview', 'colaboradores', 'metas', 'figurinhas', 'monitoramento'];
-const MARKET_NEWS_STORAGE_PREFIX = 'husf_market_news_v1_seen';
+const MARKET_NEWS_STORAGE_PREFIX = 'husf_market_news_v2_metas_prorrogadas_seen';
 const MAX_STICKER_UPLOAD_BYTES = 1 * 1024 * 1024;
 const MAX_STICKER_SOURCE_BYTES = 8 * 1024 * 1024;
 const STICKER_IMAGE_MAX_DIMENSION = 700;
 const STICKER_IMAGE_QUALITY = 0.75;
 const RANKING_DISPLAY_LIMIT = 100;
-const ADMIN_USERS_FETCH_LIMIT = 1000;
+const ADMIN_USERS_FETCH_LIMIT = 1000; // Base completa só quando necessário no admin/ranking.
 
 const LazyPanelFallback = () => (
   <div className="bg-white border border-slate-100 rounded-3xl p-8 shadow-sm text-center text-slate-500 font-bold">
@@ -188,6 +188,13 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
 
   // Dynamic user list and registration states
   const [usersList, setUsersList] = useState<User[]>(() => getStoredUsers());
+
+  const getAdminUsersSnapshot = async (): Promise<User[]> => {
+    if (usersList.length > 0) {
+      return JSON.parse(JSON.stringify(usersList));
+    }
+    return dbGetUsers({ maxRows: ADMIN_USERS_FETCH_LIMIT });
+  };
   const [newRegCpf, setNewRegCpf] = useState('');
   const [newRegName, setNewRegName] = useState('');
   const [newRegSector, setNewRegSector] = useState('UTI Adulto');
@@ -449,7 +456,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   };
 
   const handleGiftSticker = async (targetCpf: string, stickerId: number) => {
-    const currentUsers = await dbGetUsers({ force: true, maxRows: ADMIN_USERS_FETCH_LIMIT });
+    const currentUsers = await getAdminUsersSnapshot();
     let stickerName = `Figurinha #${stickerId}`;
     const foundSticker = getStickerById(stickerId);
     if (foundSticker) {
@@ -484,7 +491,6 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       onUpdateUser(updatedTargetUser);
     }
     
-    setAdminRefresh(prev => prev + 1);
     setNewRegSuccess(`Sucesso! A figurinha ${stickerName} foi adicionada ao inventário do colaborador.`);
     setTimeout(() => setNewRegSuccess(''), 4000);
   };
@@ -546,7 +552,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     let active = true;
 
     async function loadFreshData() {
-      const needsUsers = activeTab === 'inicio' || activeTab === 'ranking' || activeTab === 'admin';
+      const needsUsers = activeTab === 'ranking' || activeTab === 'admin';
       const needsStickers = activeTab === 'inicio' || activeTab === 'album' || activeTab === 'loja' || activeTab === 'trocas' || activeTab === 'admin';
 
       if (needsUsers) {
@@ -580,25 +586,45 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   useEffect(() => {
     let active = true;
 
-    const refreshUsersFromCloud = async () => {
+    const persistUsersCache = (list: User[]) => {
       try {
-        const freshUsers = await dbGetUsers({ force: true, maxRows: ADMIN_USERS_FETCH_LIMIT });
-        if (!active) return;
-
-        setUsersList(freshUsers);
-
-        const refreshedLoggedUser = freshUsers.find(u => u.cpf === user.cpf);
-        if (refreshedLoggedUser && onUpdateUser && shouldApplyRemoteUser(user, refreshedLoggedUser)) {
-          onUpdateUser(refreshedLoggedUser);
-        }
+        localStorage.setItem('husf_users', JSON.stringify(list));
       } catch (err) {
-        console.warn('Erro ao atualizar usuários via realtime:', err);
+        console.warn('Não foi possível atualizar o cache local via realtime:', err);
       }
     };
 
-    const userSubscription = subscribeToUsers(() => {
-      refreshUsersFromCloud();
-    });
+    const applyUserRealtimePayload = (payload: any) => {
+      if (!active) return;
+
+      const row = payload?.new || payload?.old;
+      if (!row?.cpf) return;
+
+      const cleanPayloadCpf = normalizeCpf(row.cpf);
+
+      setUsersList(prev => {
+        let next: User[];
+
+        if (payload?.eventType === 'DELETE') {
+          next = prev.filter(u => normalizeCpf(u.cpf) !== cleanPayloadCpf);
+        } else {
+          const realtimeUser = mapSupabaseUserRow(row);
+          const index = prev.findIndex(u => normalizeCpf(u.cpf) === cleanPayloadCpf);
+          next = index >= 0
+            ? prev.map((u, i) => (i === index ? realtimeUser : u))
+            : [...prev, realtimeUser];
+
+          if (normalizeCpf(user.cpf) === cleanPayloadCpf && onUpdateUser && shouldApplyRemoteUser(user, realtimeUser)) {
+            onUpdateUser(realtimeUser);
+          }
+        }
+
+        persistUsersCache(next);
+        return next;
+      });
+    };
+
+    const userSubscription = subscribeToUsers(applyUserRealtimePayload);
 
     return () => {
       active = false;
@@ -969,7 +995,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       return;
     }
 
-    const currentUsers = await dbGetUsers({ force: true, maxRows: ADMIN_USERS_FETCH_LIMIT });
+    const currentUsers = await getAdminUsersSnapshot();
     if (currentUsers.some(u => u.cpf === formattedCpf)) {
       setNewRegError(`O CPF ${formattedCpf} já está cadastrado para o colaborador ${currentUsers.find(u => u.cpf === formattedCpf)?.name || ''}.`);
       return;
@@ -995,7 +1021,6 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     const updated = [...currentUsers, newUser];
     await dbSaveSingleUser(newUser);
     setUsersList(updated);
-    setAdminRefresh(prev => prev + 1);
 
     setNewRegCpf('');
     setNewRegName('');
@@ -1027,7 +1052,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     }
 
     const lines = txt.split('\n');
-    const currentUsers = await dbGetUsers({ force: true, maxRows: ADMIN_USERS_FETCH_LIMIT });
+    const currentUsers = await getAdminUsersSnapshot();
     
     const newAddedUsers: User[] = [];
     const duplicates: string[] = [];
@@ -1102,8 +1127,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       const updated = [...currentUsers, ...newAddedUsers];
       await Promise.all(newAddedUsers.map(newUser => dbSaveSingleUser(newUser)));
       setUsersList(updated);
-      setAdminRefresh(prev => prev + 1);
-      setBulkSuccess(`Importação concluída! ${successCount} colaboradores cadastrados com sucesso.`);
+        setBulkSuccess(`Importação concluída! ${successCount} colaboradores cadastrados com sucesso.`);
       setBulkText('');
     } else {
       setBulkError('Nenhum colaborador novo foi cadastrado. Verifique os erros listados abaixo.');
@@ -1117,7 +1141,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   };
 
   const handleRewardUser = async (targetCpf: string, amount: number) => {
-    const currentUsers = await dbGetUsers({ force: true, maxRows: ADMIN_USERS_FETCH_LIMIT });
+    const currentUsers = await getAdminUsersSnapshot();
     let updatedTargetUser: User | null = null;
     const updated = currentUsers.map(u => {
       if (u.cpf === targetCpf) {
@@ -1147,7 +1171,6 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       onUpdateUser(updatedTargetUser);
     }
     
-    setAdminRefresh(prev => prev + 1);
 
     // Toast-like notification of reward using success banner for feedback
     setNewRegSuccess(`Sucesso! Foram creditadas +${amount} moedas ao colaborador.`);
@@ -1159,12 +1182,11 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       setNewRegError('Você não pode excluir o seu próprio usuário administrador logado!');
       return;
     }
-    const currentUsers = await dbGetUsers({ force: true, maxRows: ADMIN_USERS_FETCH_LIMIT });
+    const currentUsers = await getAdminUsersSnapshot();
     const updated = currentUsers.filter(u => u.cpf !== targetCpf);
     await dbDeleteUser(targetCpf);
     setUsersList(updated);
     setConfirmDeleteCpf(null);
-    setAdminRefresh(prev => prev + 1);
     
     setNewRegSuccess('Colaborador removido com sucesso de nosso banco de dados hospitalar.');
     setTimeout(() => setNewRegSuccess(''), 4000);
@@ -2326,7 +2348,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       <div className="mt-3 bg-white p-3 rounded-lg border border-slate-200 text-[11px] text-slate-500 font-medium space-y-1">
                         <p className="text-slate-800 font-bold">Como resolver:</p>
                         <ul className="list-disc pl-4 space-y-0.5">
-                          <li>Abra o Supabase e confira se o projeto não está pausado/inativo. Em plano gratuito, o primeiro acesso pode demorar.</li>
+                          <li>Abra o Supabase e confira se o projeto não está pausado/inativo. Em plano gratuito, o primeiro acesso pode demorar; esta versão espera mais tempo antes de cair no cache local.</li>
                           <li>Confirme se a URL e a Anon Key estão corretas, sem espaços extras, e reinicie o Dev Server do AI Studio.</li>
                           <li>Rode novamente os scripts SQL de criação/correção das tabelas e do realtime.</li>
                           <li>Evite salvar imagens base64 pesadas no banco; use caminhos como <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-purple-700">/assets/images/sticker_1.webp</code>.</li>
@@ -3828,52 +3850,45 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
               <div className="relative p-5 sm:p-6">
                 <div className="mb-5 flex items-center gap-3 text-white">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/25 bg-white/15 shadow-lg backdrop-blur">
-                    <ShoppingBag className="h-7 w-7 text-amber-200" />
+                    <AlertCircle className="h-7 w-7 text-amber-200" />
                   </div>
                   <div className="min-w-0">
                     <span className="inline-flex rounded-full bg-amber-300 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-900">
-                      Novidade
+                      Atenção
                     </span>
                     <h2 id="market-news-title" className="mt-2 text-xl font-black leading-tight tracking-tight sm:text-2xl font-[Space_Grotesk]">
-                      Mercado de Figurinhas chegou!
+                      Prazo das Metas 1 e 2 prorrogado!
                     </h2>
                   </div>
                 </div>
 
                 <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
                   <p className="text-sm font-semibold leading-relaxed text-slate-600">
-                    Agora você pode colocar suas figurinhas repetidas à venda e comprar figurinhas que ainda faltam no seu álbum usando moedas.
+                    ATENÇÃO: PRORROGADO A DATA LIMITE DAS METAS 1 E 2 ATÉ O DIA 12/06/2026.
                   </p>
 
                   <div className="mt-4 grid gap-2 text-xs font-bold text-slate-600">
-                    <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-emerald-800">
-                      <ArrowRightLeft className="h-4 w-4 shrink-0" />
-                      Venda apenas figurinhas repetidas.
-                    </div>
                     <div className="flex items-center gap-2 rounded-2xl bg-amber-50 p-3 text-amber-800">
-                      <Coins className="h-4 w-4 shrink-0" />
-                      Ganhe moedas quando alguém comprar.
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      Não deixe para fazer na última hora.
                     </div>
-                    <div className="flex items-center gap-2 rounded-2xl bg-indigo-50 p-3 text-indigo-800">
-                      <LayoutGrid className="h-4 w-4 shrink-0" />
-                      Complete seu álbum mais rápido.
+                    <div className="flex items-center gap-2 rounded-2xl bg-rose-50 p-3 text-rose-800">
+                      <Zap className="h-4 w-4 shrink-0" />
+                      Com muitos acessos, o aplicativo pode ficar lento.
+                    </div>
+                    <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3 text-emerald-800">
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      Faça as metas com antecedência e evite instabilidade.
                     </div>
                   </div>
 
                   <div className="mt-5 flex flex-col gap-2 sm:flex-row">
                     <button
                       type="button"
-                      onClick={() => handleCloseMarketNews(true)}
-                      className="flex-1 rounded-2xl bg-gradient-to-r from-emerald-600 to-brand-600 px-4 py-3 text-sm font-black uppercase tracking-wide text-white shadow-lg shadow-emerald-600/20 transition hover:scale-[1.01] active:scale-[0.98]"
-                    >
-                      Conhecer o mercado
-                    </button>
-                    <button
-                      type="button"
                       onClick={() => handleCloseMarketNews(false)}
-                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-500 transition hover:bg-slate-50"
+                      className="flex-1 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-3 text-sm font-black uppercase tracking-wide text-white shadow-lg shadow-amber-600/20 transition hover:scale-[1.01] active:scale-[0.98]"
                     >
-                      Ver depois
+                      Entendi
                     </button>
                   </div>
                 </div>
