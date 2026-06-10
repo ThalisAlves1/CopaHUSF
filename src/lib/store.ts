@@ -130,7 +130,7 @@ export const PACKAGES: PackageDefinition[] = [
     id: 'plantao',
     name: 'Pacote do Plantão',
     category: 'Comum',
-    price: 30,
+    price: 60,
     color: 'bg-emerald-500',
     description: 'Porta de entrada. Preencha a base do álbum regular.',
     guaranteed: '3 Figurinhas Regulares'
@@ -139,7 +139,7 @@ export const PACKAGES: PackageDefinition[] = [
     id: 'elite',
     name: 'Pacote de Elite da Qualidade',
     category: 'Raro',
-    price: 60,
+    price: 100,
     color: 'bg-amber-400',
     description: 'Introduz a chance de adquirir cromos holográficos.',
     guaranteed: '3 Figurinhas Mistas'
@@ -148,7 +148,7 @@ export const PACKAGES: PackageDefinition[] = [
     id: 'reliquia',
     name: 'Pacote Relíquia Histórica',
     category: 'Lendário',
-    price: 100,
+    price: 150,
     color: 'bg-fuchsia-600',
     description: 'Garante uma figurinha Lendária Retrô.',
     guaranteed: '1 Lendária + 2 Mistas'
@@ -157,7 +157,7 @@ export const PACKAGES: PackageDefinition[] = [
     id: 'final',
     name: 'Pacote Grandes Finais',
     category: 'Premium',
-    price: 150,
+    price: 300,
     color: 'bg-slate-900',
     description: 'Único pacote com chance da Suprema Bola de Ouro. A chance é raríssima: 1% por pacote.',
     guaranteed: '1 chance Suprema de 1% + 2 Mistas Premium'
