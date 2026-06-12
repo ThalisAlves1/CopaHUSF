@@ -389,7 +389,7 @@ const SUPABASE_TIMEOUT_MS = 12000;
 const USERS_CACHE_TTL_MS = 180_000;
 const STICKERS_CACHE_TTL_MS = 120_000;
 const MARKET_CACHE_TTL_MS = 45_000;
-const MAX_USERS_FETCH_ROWS = 1000;
+const MAX_USERS_FETCH_ROWS = 2000;
 const USERS_QUERY_TIMEOUT_MS = 15000;
 const MAX_MARKET_LISTINGS = 100;
 
@@ -595,8 +595,8 @@ export async function dbGetUsers(options: { force?: boolean; maxRows?: number } 
     let allData: any[] = [];
     let page = 0;
     const maxRows = Math.max(50, Math.min(options.maxRows || MAX_USERS_FETCH_ROWS, MAX_USERS_FETCH_ROWS));
-    // Busca até 1000 colaboradores em uma única chamada para evitar várias requisições lentas no painel admin.
-    const pageSize = maxRows;
+    // Busca paginada: permite acompanhar todos os 1.238+ colaboradores sem travar a tela.
+    const pageSize = Math.min(500, maxRows);
     let hasMore = true;
 
     while (hasMore && allData.length < maxRows) {

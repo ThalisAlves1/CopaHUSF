@@ -54,7 +54,7 @@ const MAX_STICKER_SOURCE_BYTES = 8 * 1024 * 1024;
 const STICKER_IMAGE_MAX_DIMENSION = 700;
 const STICKER_IMAGE_QUALITY = 0.75;
 const RANKING_DISPLAY_LIMIT = 100;
-const ADMIN_USERS_FETCH_LIMIT = 1000; // Base completa só quando necessário no admin/ranking.
+const ADMIN_USERS_FETCH_LIMIT = 2000; // Base completa só quando necessário no admin/monitoramento. Suporta os 1.238 colaboradores.
 
 const LazyPanelFallback = () => (
   <div className="bg-white border border-slate-100 rounded-3xl p-8 shadow-sm text-center text-slate-500 font-bold">
@@ -202,6 +202,8 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   const [newRegSuccess, setNewRegSuccess] = useState('');
   const [adminSearchFilter, setAdminSearchFilter] = useState('');
   const [adminQuizSectorFilter, setAdminQuizSectorFilter] = useState('all');
+  const [adminQuizPage, setAdminQuizPage] = useState(0);
+  const ADMIN_MONITORING_PAGE_SIZE = 100;
   const [confirmDeleteCpf, setConfirmDeleteCpf] = useState<string | null>(null);
 
   // States for dynamic sticker creation and management
@@ -1317,6 +1319,10 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     return Array.from(new Set<string>(sectors)).sort((a, b) => a.localeCompare(b));
   }, [usersList]);
 
+  useEffect(() => {
+    setAdminQuizPage(0);
+  }, [adminQuizSectorFilter]);
+
   const adminQuizSectorReport = useMemo(() => {
     const collaborators = usersList
       .filter(u => !u.isAdmin)
@@ -1377,6 +1383,11 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       };
     });
 
+    const totalPages = Math.max(1, Math.ceil(rows.length / ADMIN_MONITORING_PAGE_SIZE));
+    const safePage = Math.min(adminQuizPage, totalPages - 1);
+    const pageStart = safePage * ADMIN_MONITORING_PAGE_SIZE;
+    const paginatedRows = rows.slice(pageStart, pageStart + ADMIN_MONITORING_PAGE_SIZE);
+
     return {
       selectedSector: adminQuizSectorFilter === 'all' ? 'Todos os setores' : adminQuizSectorFilter,
       total,
@@ -1385,9 +1396,14 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       pending,
       averageEngagement,
       rows,
+      paginatedRows,
+      totalPages,
+      currentPage: safePage,
+      pageStart,
+      pageEnd: Math.min(pageStart + ADMIN_MONITORING_PAGE_SIZE, rows.length),
       metaTotals
     };
-  }, [usersList, adminQuizSectorFilter]);
+  }, [usersList, adminQuizSectorFilter, adminQuizPage]);
 
   const adminEngagementReport = useMemo(() => {
     const collaborators = usersList.filter(u => !u.isAdmin);
@@ -3573,7 +3589,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                     </span>
                     <h3 className="font-black text-slate-900 text-xl sm:text-2xl font-[Space_Grotesk]">Quem fez os quizzes</h3>
                     <p className="text-xs sm:text-sm text-slate-500 mt-1 leading-relaxed">
-                      Filtre um setor, como Pronto Atendimento, e veja colaborador por colaborador quem já respondeu, quem concluiu metas e quem ainda está pendente.
+                      Todos os colaboradores ficam no acompanhamento. Para manter leve, a tabela mostra 100 por página e preserva o resumo completo do setor selecionado.
                     </p>
                   </div>
 
@@ -3596,7 +3612,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                   <div className="rounded-2xl p-4 border border-slate-100 bg-slate-50">
                     <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Setor selecionado</p>
                     <p className="text-lg font-black text-slate-900 font-[Space_Grotesk] mt-1 safe-text">{adminQuizSectorReport.selectedSector}</p>
-                    <p className="text-[11px] text-slate-500 font-semibold mt-1">{adminQuizSectorReport.total} colaboradores na lista</p>
+                    <p className="text-[11px] text-slate-500 font-semibold mt-1">{adminQuizSectorReport.total} colaboradores no acompanhamento</p>
                   </div>
                   <div className="rounded-2xl p-4 border border-emerald-100 bg-emerald-50/60">
                     <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Fizeram quiz</p>
@@ -3638,7 +3654,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {adminQuizSectorReport.rows.length > 0 ? adminQuizSectorReport.rows.map((row) => (
+                      {adminQuizSectorReport.paginatedRows.length > 0 ? adminQuizSectorReport.paginatedRows.map((row) => (
                         <tr key={row.collaborator.cpf} className="bg-white hover:bg-slate-50/70 transition-colors">
                           <td className="px-4 py-3">
                             <p className="font-black text-slate-800 text-sm safe-text">{row.collaborator.name}</p>
@@ -3695,6 +3711,35 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                     </tbody>
                   </table>
                 </div>
+
+                {adminQuizSectorReport.rows.length > 0 && (
+                  <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                    <p className="text-xs font-bold text-slate-500">
+                      Mostrando {adminQuizSectorReport.pageStart + 1} a {adminQuizSectorReport.pageEnd} de {adminQuizSectorReport.total} colaboradores.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAdminQuizPage(page => Math.max(0, page - 1))}
+                        disabled={adminQuizSectorReport.currentPage === 0}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 transition-colors"
+                      >
+                        Anterior
+                      </button>
+                      <span className="text-xs font-black text-slate-500">
+                        Página {adminQuizSectorReport.currentPage + 1} de {adminQuizSectorReport.totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setAdminQuizPage(page => Math.min(adminQuizSectorReport.totalPages - 1, page + 1))}
+                        disabled={adminQuizSectorReport.currentPage >= adminQuizSectorReport.totalPages - 1}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 transition-colors"
+                      >
+                        Próxima
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-bold text-slate-500">
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 px-2.5 py-1">Verde: meta concluída</span>
