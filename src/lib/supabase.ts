@@ -77,7 +77,26 @@ import { embedActivityLogInProgress, getActivityLog } from './activity';
   CREATE POLICY "Public Settings Update" ON public.husf_settings FOR UPDATE USING (true);
   CREATE POLICY "Public Settings Delete" ON public.husf_settings FOR DELETE USING (true);
 
-  -- 5. Realtime support. Run this once in Supabase SQL Editor or enable the tables
+  -- 5. Virtual queue table to avoid too many employees loading heavy modules at the same time
+  CREATE TABLE IF NOT EXISTS public.husf_queue_sessions (
+    cpf TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    sector TEXT NOT NULL,
+    last_seen TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS husf_queue_sessions_created_idx ON public.husf_queue_sessions (created_at ASC);
+  CREATE INDEX IF NOT EXISTS husf_queue_sessions_last_seen_idx ON public.husf_queue_sessions (last_seen DESC);
+
+  ALTER TABLE public.husf_queue_sessions ENABLE ROW LEVEL SECURITY;
+  CREATE POLICY "Public Queue Select" ON public.husf_queue_sessions FOR SELECT USING (true);
+  CREATE POLICY "Public Queue Insert" ON public.husf_queue_sessions FOR INSERT WITH CHECK (true);
+  CREATE POLICY "Public Queue Update" ON public.husf_queue_sessions FOR UPDATE USING (true);
+  CREATE POLICY "Public Queue Delete" ON public.husf_queue_sessions FOR DELETE USING (true);
+
+  -- 6. Realtime support. Run this once in Supabase SQL Editor or enable the tables
   -- under Database > Publications > supabase_realtime.
   ALTER TABLE public.husf_users REPLICA IDENTITY FULL;
   ALTER TABLE public.husf_stickers REPLICA IDENTITY FULL;
@@ -98,7 +117,7 @@ import { embedActivityLogInProgress, getActivityLog } from './activity';
   EXCEPTION WHEN duplicate_object THEN NULL;
   END $$;
 
-  -- 6. Storage bucket for real sticker image uploads from the Admin panel.
+  -- 7. Storage bucket for real sticker image uploads from the Admin panel.
   -- Run this once so the app can upload images and everyone can see them.
   INSERT INTO storage.buckets (id, name, public)
   VALUES ('husf-stickers', 'husf-stickers', true)
@@ -182,6 +201,22 @@ export const supabaseClient = isSupabaseConfigured
   : null;
 
 export const STICKER_STORAGE_BUCKET = 'husf-stickers';
+const PENDING_USER_SYNC_QUEUE_KEY = 'husf_pending_user_sync_queue_v1';
+const PENDING_USER_SYNC_MAX_ITEMS = 250;
+const VIRTUAL_QUEUE_SESSION_KEY = 'husf_virtual_queue_session_id_v1';
+export const VIRTUAL_QUEUE_MAX_ACTIVE_USERS = 120;
+const VIRTUAL_QUEUE_STALE_AFTER_MS = 2 * 60 * 1000;
+
+export interface VirtualQueueStatus {
+  allowed: boolean;
+  position: number;
+  peopleAhead: number;
+  activeCount: number;
+  waitingCount: number;
+  maxActive: number;
+  queueUnavailable?: boolean;
+  message?: string;
+}
 
 function safeStorageFileName(value: string): string {
   return value
@@ -326,6 +361,101 @@ function preferLocalIfNewer(remoteUser: User): User {
   return remoteUser;
 }
 
+
+function buildSupabaseUserPayload(user: User) {
+  return {
+    cpf: user.cpf,
+    name: user.name,
+    sector: user.sector,
+    coins: user.coins,
+    stickers: user.stickers,
+    progress: embedActivityLogInProgress(user),
+    is_admin: !!user.isAdmin,
+    updated_at: user.updatedAt || new Date().toISOString()
+  };
+}
+
+function readPendingUserSyncQueue(): User[] {
+  try {
+    const raw = localStorage.getItem(PENDING_USER_SYNC_QUEUE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((u: any) => u && typeof u === 'object' && u.cpf)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePendingUserSyncQueue(queue: User[]) {
+  const byCpf = new Map<string, User>();
+
+  for (const item of queue) {
+    const cleanCpf = normalizeCpf(item?.cpf);
+    if (!cleanCpf) continue;
+
+    const current = byCpf.get(cleanCpf);
+    if (!current || getUserUpdatedTime(item) >= getUserUpdatedTime(current)) {
+      byCpf.set(cleanCpf, item);
+    }
+  }
+
+  const compactQueue = Array.from(byCpf.values())
+    .sort((a, b) => getUserUpdatedTime(a) - getUserUpdatedTime(b))
+    .slice(-PENDING_USER_SYNC_MAX_ITEMS);
+
+  localStorage.setItem(PENDING_USER_SYNC_QUEUE_KEY, JSON.stringify(compactQueue));
+}
+
+function queuePendingUserSync(user: User) {
+  try {
+    writePendingUserSyncQueue([...readPendingUserSyncQueue(), user]);
+  } catch (err) {
+    console.warn('Não foi possível colocar o progresso na fila local de segurança:', err);
+  }
+}
+
+async function upsertSingleUserToCloud(user: User, timeoutMs = 8000) {
+  if (!isSupabaseConfigured || !supabaseClient) return;
+
+  const { error } = await promiseWithTimeout(
+    supabaseClient
+      .from('husf_users')
+      .upsert(buildSupabaseUserPayload(user), { onConflict: 'cpf' }) as any,
+    timeoutMs
+  ) as any;
+
+  if (error) throw error;
+}
+
+export function dbGetPendingUserSyncCount(): number {
+  return readPendingUserSyncQueue().length;
+}
+
+export async function dbFlushPendingUserSyncQueue(): Promise<number> {
+  if (!isSupabaseConfigured || !supabaseClient) return 0;
+
+  const queue = readPendingUserSyncQueue();
+  if (queue.length === 0) return 0;
+
+  const remaining: User[] = [];
+  let synced = 0;
+
+  for (const queuedUser of queue) {
+    try {
+      await upsertSingleUserToCloud(queuedUser, 8000);
+      synced += 1;
+    } catch (err) {
+      remaining.push(queuedUser);
+      console.warn('Item da fila local ainda não sincronizou com o Supabase:', err);
+    }
+  }
+
+  writePendingUserSyncQueue(remaining);
+  if (synced > 0) lastSupabaseError = null;
+  return synced;
+}
+
 export async function dbFindUserByCpf(cpf: string): Promise<User | null> {
   const cleanCpfInput = normalizeCpf(cpf);
   if (!cleanCpfInput) return null;
@@ -449,8 +579,56 @@ function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
 }
 
+function normalizeUserText(value: string | null | undefined, fallback: string) {
+  const cleaned = String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned || fallback;
+}
+
+function chooseNewestUser(current: User, candidate: User): User {
+  const currentTime = getUserUpdatedTime(current);
+  const candidateTime = getUserUpdatedTime(candidate);
+  if (candidateTime > currentTime) return candidate;
+  if (candidateTime < currentTime) return current;
+
+  const currentProgress = Object.values(current.progress || {}).reduce((sum, progress) => sum + (progress?.totalCoinsEarned || 0), 0);
+  const candidateProgress = Object.values(candidate.progress || {}).reduce((sum, progress) => sum + (progress?.totalCoinsEarned || 0), 0);
+  return candidateProgress > currentProgress ? candidate : current;
+}
+
+function sanitizeUsersList(users: User[]): User[] {
+  const byCpf = new Map<string, User>();
+  const withoutCpf: User[] = [];
+
+  users
+    .filter((u: any) => u && typeof u === 'object')
+    .forEach((user) => {
+      const cleaned: User = {
+        ...user,
+        cpf: String(user.cpf || ''),
+        name: normalizeUserText(user.name, 'Sem Nome'),
+        sector: normalizeUserText(user.sector, 'Outro Setor'),
+        coins: Number.isFinite(Number(user.coins)) ? Number(user.coins) : 0,
+        stickers: Array.isArray(user.stickers) ? user.stickers : [],
+        progress: typeof user.progress === 'object' && user.progress !== null ? user.progress : {}
+      };
+
+      const cpfKey = normalizeCpf(cleaned.cpf);
+      if (!cpfKey) {
+        withoutCpf.push(cleaned);
+        return;
+      }
+
+      const existing = byCpf.get(cpfKey);
+      byCpf.set(cpfKey, existing ? chooseNewestUser(existing, cleaned) : cleaned);
+    });
+
+  return [...byCpf.values(), ...withoutCpf].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function setUsersCache(users: User[]) {
-  usersMemoryCache = cloneJson(users);
+  usersMemoryCache = cloneJson(sanitizeUsersList(users));
   usersMemoryFetchedAt = Date.now();
 }
 
@@ -526,6 +704,152 @@ export function subscribeToSettings(onUpdate: (payload: any) => void) {
     .subscribe((status) => console.log('Status realtime husf_settings:', status));
 }
 
+
+// ────────────────────────────────────────────────────────────────────────
+// VIRTUAL QUEUE HELPERS
+// ────────────────────────────────────────────────────────────────────────
+
+export function getVirtualQueueSessionId(): string {
+  try {
+    const stored = localStorage.getItem(VIRTUAL_QUEUE_SESSION_KEY);
+    if (stored) return stored;
+
+    const generated = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+    localStorage.setItem(VIRTUAL_QUEUE_SESSION_KEY, generated);
+    return generated;
+  } catch {
+    return `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  }
+}
+
+export async function dbEnterVirtualQueue(
+  user: User,
+  sessionId = getVirtualQueueSessionId(),
+  maxActive = VIRTUAL_QUEUE_MAX_ACTIVE_USERS
+): Promise<VirtualQueueStatus> {
+  if (user.isAdmin) {
+    return {
+      allowed: true,
+      position: 1,
+      peopleAhead: 0,
+      activeCount: 0,
+      waitingCount: 0,
+      maxActive
+    };
+  }
+
+  if (!isSupabaseConfigured || !supabaseClient) {
+    return {
+      allowed: true,
+      position: 1,
+      peopleAhead: 0,
+      activeCount: 0,
+      waitingCount: 0,
+      maxActive,
+      queueUnavailable: true,
+      message: 'Fila virtual indisponível porque o Supabase não está configurado.'
+    };
+  }
+
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - VIRTUAL_QUEUE_STALE_AFTER_MS).toISOString();
+  const cleanCpf = normalizeCpf(user.cpf);
+
+  try {
+    // Remove sessões antigas para não prender vaga de quem fechou o navegador.
+    await promiseWithTimeout(
+      supabaseClient
+        .from('husf_queue_sessions')
+        .delete()
+        .lt('last_seen', cutoff) as any,
+      5000
+    );
+
+    const { error: upsertError } = await promiseWithTimeout(
+      supabaseClient
+        .from('husf_queue_sessions')
+        .upsert({
+          cpf: cleanCpf || user.cpf,
+          session_id: sessionId,
+          name: user.name || 'Colaborador',
+          sector: user.sector || 'Sem setor',
+          last_seen: now.toISOString()
+        }, { onConflict: 'cpf' }) as any,
+      6000
+    ) as any;
+
+    if (upsertError) throw upsertError;
+
+    const { data, error } = await promiseWithTimeout(
+      supabaseClient
+        .from('husf_queue_sessions')
+        .select('cpf,session_id,last_seen,created_at')
+        .gte('last_seen', cutoff)
+        .order('created_at', { ascending: true })
+        .limit(2000) as any,
+      8000
+    ) as any;
+
+    if (error) throw error;
+
+    const rows = Array.isArray(data) ? data : [];
+    const userIndex = rows.findIndex((row: any) => normalizeCpf(row?.cpf) === cleanCpf);
+    const safeIndex = userIndex >= 0 ? userIndex : rows.length;
+    const position = safeIndex + 1;
+    const allowed = safeIndex < maxActive;
+    const waitingCount = Math.max(0, rows.length - maxActive);
+
+    lastSupabaseError = null;
+
+    return {
+      allowed,
+      position,
+      peopleAhead: Math.max(0, position - 1),
+      activeCount: Math.min(rows.length, maxActive),
+      waitingCount,
+      maxActive
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    lastSupabaseError = message;
+    console.warn('Fila virtual indisponível; liberando acesso para não bloquear o colaborador:', err);
+
+    return {
+      allowed: true,
+      position: 1,
+      peopleAhead: 0,
+      activeCount: 0,
+      waitingCount: 0,
+      maxActive,
+      queueUnavailable: true,
+      message
+    };
+  }
+}
+
+export async function dbLeaveVirtualQueue(userCpf?: string, sessionId = getVirtualQueueSessionId()): Promise<void> {
+  if (!isSupabaseConfigured || !supabaseClient) return;
+
+  try {
+    let query = supabaseClient
+      .from('husf_queue_sessions')
+      .delete()
+      .eq('session_id', sessionId) as any;
+
+    if (userCpf) {
+      query = query.eq('cpf', normalizeCpf(userCpf));
+    }
+
+    const { error } = await promiseWithTimeout(query, 5000) as any;
+    if (error) throw error;
+  } catch (err) {
+    console.warn('Não foi possível sair da fila virtual agora. A sessão expira sozinha em poucos minutos:', err);
+  }
+}
+
 // ────────────────────────────────────────────────────────────────────────
 // USERS SYNCHRONIZATION HELPERS
 // ────────────────────────────────────────────────────────────────────────
@@ -569,16 +893,17 @@ export async function dbGetUsers(options: { force?: boolean; maxRows?: number } 
             return u;
           });
 
-          if (updated) {
-            localStorage.setItem('husf_users', JSON.stringify(updatedParsed));
-            return updatedParsed;
+          const sanitized = sanitizeUsersList(updated ? updatedParsed : safeParsed);
+          if (updated || sanitized.length !== safeParsed.length) {
+            localStorage.setItem('husf_users', JSON.stringify(sanitized));
           }
-          return safeParsed;
+          return sanitized;
         }
       } catch { }
     }
-    localStorage.setItem('husf_users', JSON.stringify(DB_DEFAULT_USERS));
-    return DB_DEFAULT_USERS;
+    const defaults = sanitizeUsersList(DB_DEFAULT_USERS);
+    localStorage.setItem('husf_users', JSON.stringify(defaults));
+    return defaults;
   };
 
   if (!options.force && usersMemoryCache && isCacheFresh(usersMemoryFetchedAt, USERS_CACHE_TTL_MS)) {
@@ -657,15 +982,18 @@ export async function dbGetUsers(options: { force?: boolean; maxRows?: number } 
         }
       });
 
+      parsed = sanitizeUsersList(parsed);
+
       // Keep local sync updated
       localStorage.setItem('husf_users', JSON.stringify(parsed));
       setUsersCache(parsed);
       return parsed;
     } else {
       // Seed default users to remote DB
-      await dbSaveUsers(DB_DEFAULT_USERS);
-      setUsersCache(DB_DEFAULT_USERS);
-      return DB_DEFAULT_USERS;
+      const defaults = sanitizeUsersList(DB_DEFAULT_USERS);
+      await dbSaveUsers(defaults);
+      setUsersCache(defaults);
+      return defaults;
     }
   } catch (err) {
     lastSupabaseError = err instanceof Error ? err.message : String(err);
@@ -677,22 +1005,15 @@ export async function dbGetUsers(options: { force?: boolean; maxRows?: number } 
 }
 
 export async function dbSaveUsers(users: User[]): Promise<void> {
+  const sanitizedUsers = sanitizeUsersList(users);
+
   // Always update local storage first so offline experience continues immediately
-  localStorage.setItem('husf_users', JSON.stringify(users));
+  localStorage.setItem('husf_users', JSON.stringify(sanitizedUsers));
 
   if (!isSupabaseConfigured || !supabaseClient) return;
 
   try {
-    const payloads = users.map((u) => ({
-      cpf: u.cpf,
-      name: u.name,
-      sector: u.sector,
-      coins: u.coins,
-      stickers: u.stickers,
-      progress: embedActivityLogInProgress(u),
-      is_admin: !!u.isAdmin,
-      updated_at: u.updatedAt || new Date().toISOString()
-    }));
+    const payloads = sanitizedUsers.map(buildSupabaseUserPayload);
 
     usersMemoryCache = null;
     usersMemoryFetchedAt = 0;
@@ -721,7 +1042,7 @@ export async function dbSaveSingleUser(user: User): Promise<void> {
     } else {
       localUsers.push(user);
     }
-    localStorage.setItem('husf_users', JSON.stringify(localUsers));
+    localStorage.setItem('husf_users', JSON.stringify(sanitizeUsersList(localUsers)));
   } catch {
     localStorage.setItem('husf_users', JSON.stringify([user]));
   }
@@ -730,7 +1051,7 @@ export async function dbSaveSingleUser(user: User): Promise<void> {
     try {
       const raw = localStorage.getItem('husf_users');
       const parsed = raw ? JSON.parse(raw) : [user];
-      return Array.isArray(parsed) ? parsed : [user];
+      return Array.isArray(parsed) ? sanitizeUsersList(parsed) : [user];
     } catch {
       return [user];
     }
@@ -739,28 +1060,15 @@ export async function dbSaveSingleUser(user: User): Promise<void> {
   if (!isSupabaseConfigured || !supabaseClient) return;
 
   try {
-    const { error } = await promiseWithTimeout(
-      supabaseClient
-        .from('husf_users')
-        .upsert({
-          cpf: user.cpf,
-          name: user.name,
-          sector: user.sector,
-          coins: user.coins,
-          stickers: user.stickers,
-          progress: embedActivityLogInProgress(user),
-          is_admin: !!user.isAdmin,
-          updated_at: user.updatedAt || new Date().toISOString()
-        }, { onConflict: 'cpf' }) as any,
-      8000
-    ) as any;
-
-    if (error) throw error;
+    await dbFlushPendingUserSyncQueue();
+    await upsertSingleUserToCloud(user, 8000);
     lastSupabaseError = null;
   } catch (err) {
     // O usuário já foi salvo no cache local acima. Não travamos a tela quando a nuvem está lenta.
+    // Colocamos na fila local para reenviar automaticamente quando a conexão/Supabase voltar.
+    queuePendingUserSync(user);
     lastSupabaseError = err instanceof Error ? err.message : String(err);
-    console.warn(`Sincronização em nuvem lenta/falhou para o usuário ${user.cpf}; mantendo cache local:`, err);
+    console.warn(`Sincronização em nuvem lenta/falhou para o usuário ${user.cpf}; mantendo cache local e fila de segurança:`, err);
   }
 }
 

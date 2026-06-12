@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Home, LogOut, CheckCircle2, Building2, PlayCircle, Trophy, ShoppingBag, Coins, LayoutGrid, UserCheck, MessageSquare, Pill, Stethoscope, Droplets, ShieldAlert, ArrowLeft, BookOpen, Crown, User as UserIcon, AlertCircle, Zap, ArrowRightLeft, Search, ShieldCheck, Award, UserPlus, Trash2, Lock, Unlock, Upload, Image, Database, Wifi, WifiOff, Edit, X } from 'lucide-react';
+import { Home, LogOut, CheckCircle2, Building2, PlayCircle, Trophy, ShoppingBag, Coins, LayoutGrid, UserCheck, MessageSquare, Pill, Stethoscope, Droplets, ShieldAlert, ArrowLeft, BookOpen, Crown, User as UserIcon, AlertCircle, Zap, ArrowRightLeft, Search, ShieldCheck, Award, UserPlus, Trash2, Lock, Unlock, Upload, Image, Database, Wifi, WifiOff, Edit, X, RefreshCw, Hourglass } from 'lucide-react';
 import { User, MetaProgress } from '../types';
 const Store = lazy(() => import('./Store').then(module => ({ default: module.Store })));
 const Quiz = lazy(() => import('./Quiz').then(module => ({ default: module.Quiz })));
@@ -9,7 +9,7 @@ const WelcomeScreen = lazy(() => import('./WelcomeScreen').then(module => ({ def
 const StudyMaterial = lazy(() => import('./StudyMaterial').then(module => ({ default: module.StudyMaterial })));
 import { getStoredUsers, formatCPF } from '../lib/auth';
 import { StickerDefinition, getStickerById, getAllStickers, getStoredStickers, saveStoredStickers } from '../lib/store';
-import { dbGetUsers, dbGetStickers, dbSaveSingleUser, dbDeleteUser, dbInsertSticker, dbUpdateSticker, dbDeleteSticker, dbSaveWholeCatalog, dbGetReleasedMetas, dbSaveReleasedMetas, subscribeToUsers, subscribeToStickers, subscribeToSettings, DB_DEFAULT_STICKERS, isSupabaseConfigured, lastSupabaseError, uploadStickerImageFile, mapSupabaseUserRow, normalizeCpf } from '../lib/supabase';
+import { dbGetUsers, dbGetStickers, dbSaveSingleUser, dbDeleteUser, dbInsertSticker, dbUpdateSticker, dbDeleteSticker, dbSaveWholeCatalog, dbGetReleasedMetas, dbSaveReleasedMetas, dbGetPendingUserSyncCount, dbEnterVirtualQueue, dbLeaveVirtualQueue, getVirtualQueueSessionId, VIRTUAL_QUEUE_MAX_ACTIVE_USERS, type VirtualQueueStatus, subscribeToUsers, subscribeToStickers, subscribeToSettings, DB_DEFAULT_STICKERS, isSupabaseConfigured, lastSupabaseError, uploadStickerImageFile, mapSupabaseUserRow, normalizeCpf } from '../lib/supabase';
 import { StickerImage } from './StickerImage';
 import { appendActivityLog, createActivityEntry, formatActivityTime, getActivityBadgeClass, getActivityLog, getActivityTypeLabel } from '../lib/activity';
 
@@ -56,11 +56,172 @@ const STICKER_IMAGE_QUALITY = 0.75;
 const RANKING_DISPLAY_LIMIT = 100;
 const ADMIN_USERS_FETCH_LIMIT = 2000; // Base completa só quando necessário no admin/monitoramento. Suporta os 1.238 colaboradores.
 
+const normalizeTextKey = (value: string | null | undefined) => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .toLowerCase();
+
+const normalizeSectorKey = (sector: string | null | undefined) => normalizeTextKey(sector);
+
+const getMonitoringSectorLabel = (user: User) => String(user.sector || 'Outro Setor').replace(/\s+/g, ' ').trim() || 'Outro Setor';
+
+const getMonitoringProgressScore = (user: User) => {
+  const progressValues = Object.values(user.progress || {});
+  const quizScore = progressValues.reduce((sum, progress) => sum + (progress?.totalCoinsEarned || 0), 0);
+  const attemptsScore = progressValues.reduce((sum, progress) => sum + (progress?.totalAttempts || progress?.attemptsToday || 0), 0);
+  const updatedScore = user.updatedAt ? Date.parse(user.updatedAt) || 0 : 0;
+  return quizScore * 1000000 + attemptsScore * 1000 + updatedScore;
+};
+
+const chooseBestMonitoringUser = (current: User, candidate: User) => {
+  const currentScore = getMonitoringProgressScore(current);
+  const candidateScore = getMonitoringProgressScore(candidate);
+  if (candidateScore > currentScore) return candidate;
+  if (candidateScore < currentScore) return current;
+
+  const currentSector = getMonitoringSectorLabel(current);
+  const candidateSector = getMonitoringSectorLabel(candidate);
+  return candidateSector.localeCompare(currentSector) < 0 ? candidate : current;
+};
+
+const getUniqueMonitoringCollaborators = (users: User[]) => {
+  const byCpf = new Map<string, User>();
+  const withoutCpf: User[] = [];
+
+  users
+    .filter(u => !u.isAdmin)
+    .forEach((user) => {
+      const cleanedUser = { ...user, sector: getMonitoringSectorLabel(user) };
+      const cpfKey = normalizeCpf(cleanedUser.cpf);
+
+      if (!cpfKey) {
+        withoutCpf.push(cleanedUser);
+        return;
+      }
+
+      const existing = byCpf.get(cpfKey);
+      byCpf.set(cpfKey, existing ? chooseBestMonitoringUser(existing, cleanedUser) : cleanedUser);
+    });
+
+  const byName = new Map<string, User>();
+  [...byCpf.values(), ...withoutCpf].forEach((user) => {
+    const nameKey = normalizeTextKey(user.name);
+    const fallbackKey = normalizeCpf(user.cpf) || `${nameKey}|${normalizeSectorKey(user.sector)}`;
+    const key = nameKey || fallbackKey;
+    const existing = byName.get(key);
+    byName.set(key, existing ? chooseBestMonitoringUser(existing, user) : user);
+  });
+
+  return Array.from(byName.values()).sort((a, b) => a.name.localeCompare(b.name));
+};
+
 const LazyPanelFallback = () => (
   <div className="bg-white border border-slate-100 rounded-3xl p-8 shadow-sm text-center text-slate-500 font-bold">
     Carregando módulo...
   </div>
 );
+
+
+const AppClosedScreen = ({ user, onLogout, releasedMetasReady }: { user: User; onLogout: () => void; releasedMetasReady: boolean }) => (
+  <main className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-5">
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(20,184,166,0.18),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.12),transparent_35%)]" />
+    <section className="relative w-full max-w-xl rounded-[2rem] border border-white/10 bg-white/[0.06] p-6 shadow-2xl backdrop-blur-xl sm:p-8 text-center">
+      <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-400/15 border border-amber-300/30 text-amber-200">
+        <Lock className="h-8 w-8" />
+      </div>
+      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-amber-200/80">Modo econômico ativo</p>
+      <h1 className="mt-3 text-2xl sm:text-3xl font-black uppercase tracking-tight">Copa pausada no momento</h1>
+      <p className="mt-4 text-sm sm:text-base leading-relaxed text-slate-300">
+        Nenhuma meta está liberada agora. Para proteger o Supabase e evitar travamentos, o app não está carregando ranking, loja, figurinhas, trocas nem listas grandes de colaboradores.
+      </p>
+      <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 text-left text-sm text-slate-300">
+        <p><strong className="text-white">Colaborador:</strong> {user.name}</p>
+        <p><strong className="text-white">Setor:</strong> {user.sector}</p>
+        <p className="mt-3 text-xs text-slate-400">
+          {releasedMetasReady
+            ? 'Assim que a coordenação liberar uma meta, o acesso volta automaticamente ao atualizar a página.'
+            : 'Verificando liberação de metas...'}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onLogout}
+        className="mt-6 inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black uppercase tracking-wide text-slate-900 shadow-lg transition-all hover:-translate-y-0.5 active:translate-y-0"
+      >
+        <LogOut className="h-4 w-4" />
+        Sair
+      </button>
+    </section>
+  </main>
+);
+
+
+const VirtualQueueScreen = ({
+  user,
+  status,
+  queueReady,
+  onRefresh,
+  onLogout
+}: {
+  user: User;
+  status: VirtualQueueStatus | null;
+  queueReady: boolean;
+  onRefresh: () => void;
+  onLogout: () => void;
+}) => {
+  const peopleAhead = status?.peopleAhead || 0;
+  const maxActive = status?.maxActive || VIRTUAL_QUEUE_MAX_ACTIVE_USERS;
+  const waitMinutes = Math.max(1, Math.ceil((peopleAhead + 1) / Math.max(1, maxActive)) * 2);
+  const waitLabel = waitMinutes === 1 ? 'até 1 minuto' : `até ${waitMinutes} minutos`;
+
+  return (
+    <main className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-5">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(20,184,166,0.20),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.14),transparent_34%)]" />
+      <section className="relative w-full max-w-xl rounded-[2rem] border border-white/10 bg-white/[0.06] p-6 shadow-2xl backdrop-blur-xl sm:p-8 text-center">
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-400/15 border border-brand-300/30 text-brand-200">
+          <Hourglass className="h-8 w-8 animate-pulse" />
+        </div>
+
+        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-brand-200/80">Fila virtual</p>
+        <h1 className="mt-3 text-2xl sm:text-3xl font-black uppercase tracking-tight">
+          Você está na fila
+        </h1>
+
+        <div className="mt-6 rounded-3xl border border-white/10 bg-black/20 p-5">
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Tempo estimado de espera</p>
+          <p className="mt-2 text-3xl font-black text-white">
+            {queueReady ? waitLabel : 'Calculando...'}
+          </p>
+        </div>
+
+        <p className="mt-5 text-sm text-slate-300">
+          Quando chegar sua vez, o app abrirá automaticamente.
+        </p>
+
+        <div className="mt-6 flex flex-col sm:flex-row justify-center gap-3">
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black uppercase tracking-wide text-slate-900 shadow-lg transition-all hover:-translate-y-0.5 active:translate-y-0"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Atualizar tempo
+          </button>
+          <button
+            type="button"
+            onClick={onLogout}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-black uppercase tracking-wide text-white transition-all hover:bg-white/10"
+          >
+            <LogOut className="h-4 w-4" />
+            Sair
+          </button>
+        </div>
+      </section>
+    </main>
+  );
+};
 
 function isTabContent(value: string | null): value is TabContent {
   return !!value && TAB_VALUES.includes(value as TabContent);
@@ -513,16 +674,28 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     const stored = localStorage.getItem('husf_released_metas');
     if (stored) {
       try {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        return Array.isArray(parsed) ? parsed.map(Number).filter(Boolean) : [1, 2, 3, 4, 5, 6];
       } catch {
         return [1, 2, 3, 4, 5, 6];
       }
     }
     return [1, 2, 3, 4, 5, 6];
   });
+  const [releasedMetasReady, setReleasedMetasReady] = useState(false);
+  const [pendingSyncCount, setPendingSyncCount] = useState(() => dbGetPendingUserSyncCount());
+  const [virtualQueueStatus, setVirtualQueueStatus] = useState<VirtualQueueStatus | null>(null);
+  const [virtualQueueReady, setVirtualQueueReady] = useState(false);
+  const [virtualQueueRefreshKey, setVirtualQueueRefreshKey] = useState(0);
+  const isAppClosedForUser = releasedMetasReady && !user.isAdmin && releasedMetas.length === 0;
+  const shouldUseVirtualQueue = releasedMetasReady && !user.isAdmin && releasedMetas.length > 0;
+  const isWaitingInVirtualQueue = shouldUseVirtualQueue && virtualQueueReady && virtualQueueStatus?.allowed === false;
+  const isCheckingVirtualQueue = shouldUseVirtualQueue && !virtualQueueReady;
+  const canLoadHeavyData = !isAppClosedForUser && (!shouldUseVirtualQueue || (virtualQueueReady && virtualQueueStatus?.allowed));
 
   const persistReleasedMetas = async (updated: number[]) => {
     setReleasedMetas(updated);
+    setReleasedMetasReady(true);
     try {
       await dbSaveReleasedMetas(updated);
     } catch (err) {
@@ -548,14 +721,70 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     persistReleasedMetas([]);
   };
 
+  // Fila virtual: controla entrada simultânea quando há metas liberadas.
+  // Quem estiver esperando não puxa módulos pesados do Supabase.
+  useEffect(() => {
+    if (!shouldUseVirtualQueue) {
+      setVirtualQueueStatus(null);
+      setVirtualQueueReady(false);
+      return;
+    }
+
+    let active = true;
+    const sessionId = getVirtualQueueSessionId();
+
+    const refreshQueue = async () => {
+      try {
+        const status = await dbEnterVirtualQueue(user, sessionId);
+        if (active) {
+          setVirtualQueueStatus(status);
+          setVirtualQueueReady(true);
+        }
+      } catch (err) {
+        console.warn('Não foi possível atualizar a fila virtual:', err);
+        if (active) {
+          setVirtualQueueStatus({
+            allowed: true,
+            position: 1,
+            peopleAhead: 0,
+            activeCount: 0,
+            waitingCount: 0,
+            maxActive: VIRTUAL_QUEUE_MAX_ACTIVE_USERS,
+            queueUnavailable: true,
+            message: err instanceof Error ? err.message : String(err)
+          });
+          setVirtualQueueReady(true);
+        }
+      }
+    };
+
+    setVirtualQueueReady(false);
+    refreshQueue();
+    const interval = window.setInterval(refreshQueue, 30000);
+
+    const handleBeforeUnload = () => {
+      void dbLeaveVirtualQueue(user.cpf, sessionId);
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [shouldUseVirtualQueue, user.cpf, user.name, user.sector, virtualQueueRefreshKey]);
+
   // Fetch and synchronize fresh statistics from Supabase Database asynchronously.
   // Modo econômico: não puxa usuários/figurinhas do banco a cada clique de aba.
   useEffect(() => {
     let active = true;
 
     async function loadFreshData() {
+      if (!releasedMetasReady || !canLoadHeavyData) return;
+
       const needsUsers = activeTab === 'ranking' || activeTab === 'admin';
-      const needsStickers = activeTab === 'inicio' || activeTab === 'album' || activeTab === 'loja' || activeTab === 'trocas' || activeTab === 'admin';
+      const needsStickers = activeTab === 'album' || activeTab === 'loja' || activeTab === 'trocas' || activeTab === 'admin';
 
       if (needsUsers) {
         try {
@@ -582,10 +811,14 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
 
     loadFreshData();
     return () => { active = false; };
-  }, [adminRefresh, activeTab]);
+  }, [adminRefresh, activeTab, releasedMetasReady, canLoadHeavyData]);
 
-  // Realtime subscription for users, stickers and shared admin settings
+  // Realtime econômico: usuários só quando necessário.
+  // App fechado não mantém websocket grande aberto no Supabase.
   useEffect(() => {
+    if (!canLoadHeavyData) return;
+    if (!user.isAdmin && activeTab !== 'ranking' && activeTab !== 'admin') return;
+
     let active = true;
 
     const persistUsersCache = (list: User[]) => {
@@ -632,9 +865,12 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       active = false;
       userSubscription?.unsubscribe();
     };
-  }, [user, onUpdateUser]);
+  }, [user, onUpdateUser, activeTab, canLoadHeavyData]);
 
   useEffect(() => {
+    if (!canLoadHeavyData) return;
+    if (!['album', 'loja', 'trocas', 'admin'].includes(activeTab)) return;
+
     let active = true;
 
     const refreshStickersFromCloud = async () => {
@@ -654,7 +890,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       active = false;
       stickerSubscription?.unsubscribe();
     };
-  }, []);
+  }, [activeTab, canLoadHeavyData]);
 
   useEffect(() => {
     let active = true;
@@ -662,8 +898,12 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     const refreshReleasedMetas = async () => {
       try {
         const metas = await dbGetReleasedMetas();
-        if (active) setReleasedMetas(metas);
+        if (active) {
+          setReleasedMetas(metas);
+          setReleasedMetasReady(true);
+        }
       } catch (err) {
+        if (active) setReleasedMetasReady(true);
         console.warn('Erro ao atualizar liberação de metas via realtime:', err);
       }
     };
@@ -680,6 +920,17 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     return () => {
       active = false;
       settingsSubscription?.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    const updatePendingCount = () => setPendingSyncCount(dbGetPendingUserSyncCount());
+    updatePendingCount();
+    window.addEventListener('online', updatePendingCount);
+    const interval = window.setInterval(updatePendingCount, 10000);
+    return () => {
+      window.removeEventListener('online', updatePendingCount);
+      window.clearInterval(interval);
     };
   }, []);
 
@@ -1311,22 +1562,26 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       .slice(0, 8);
   }, [usersList]);
 
+  const monitoringCollaborators = useMemo(() => getUniqueMonitoringCollaborators(usersList), [usersList]);
+
   const adminQuizSectorOptions = useMemo(() => {
-    const sectors = usersList
-      .filter(u => !u.isAdmin)
-      .map(u => u.sector)
-      .filter((sector): sector is string => Boolean(sector));
-    return Array.from(new Set<string>(sectors)).sort((a, b) => a.localeCompare(b));
-  }, [usersList]);
+    const sectorByKey = new Map<string, string>();
+    monitoringCollaborators.forEach((user) => {
+      const sector = getMonitoringSectorLabel(user);
+      const key = normalizeSectorKey(sector);
+      if (key && !sectorByKey.has(key)) sectorByKey.set(key, sector);
+    });
+    return Array.from(sectorByKey.values()).sort((a, b) => a.localeCompare(b));
+  }, [monitoringCollaborators]);
 
   useEffect(() => {
     setAdminQuizPage(0);
   }, [adminQuizSectorFilter]);
 
   const adminQuizSectorReport = useMemo(() => {
-    const collaborators = usersList
-      .filter(u => !u.isAdmin)
-      .filter(u => adminQuizSectorFilter === 'all' || u.sector === adminQuizSectorFilter);
+    const selectedSectorKey = normalizeSectorKey(adminQuizSectorFilter);
+    const collaborators = monitoringCollaborators
+      .filter(u => adminQuizSectorFilter === 'all' || normalizeSectorKey(u.sector) === selectedSectorKey);
 
     const rows = collaborators
       .map((collaborator) => {
@@ -1403,7 +1658,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       pageEnd: Math.min(pageStart + ADMIN_MONITORING_PAGE_SIZE, rows.length),
       metaTotals
     };
-  }, [usersList, adminQuizSectorFilter, adminQuizPage]);
+  }, [monitoringCollaborators, adminQuizSectorFilter, adminQuizPage]);
 
   const adminEngagementReport = useMemo(() => {
     const collaborators = usersList.filter(u => !u.isAdmin);
@@ -1489,6 +1744,21 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     };
   }, [usersList, individualRankingList]);
 
+  if (isAppClosedForUser) {
+    return <AppClosedScreen user={user} onLogout={onLogout} releasedMetasReady={releasedMetasReady} />;
+  }
+
+  if (isCheckingVirtualQueue || isWaitingInVirtualQueue) {
+    return (
+      <VirtualQueueScreen
+        user={user}
+        status={virtualQueueStatus}
+        queueReady={virtualQueueReady}
+        onRefresh={() => setVirtualQueueRefreshKey(prev => prev + 1)}
+        onLogout={onLogout}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50/50 overflow-x-hidden">
@@ -1538,6 +1808,20 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
               </button>
             </div>
           </div>
+
+          {pendingSyncCount > 0 && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900 shadow-sm">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                <div>
+                  <p className="text-sm font-black uppercase tracking-wide">Progresso protegido</p>
+                  <p className="mt-1 text-xs font-semibold leading-relaxed text-amber-800">
+                    {pendingSyncCount} atualização{pendingSyncCount === 1 ? '' : 'ões'} ficou/ficaram salva(s) neste aparelho e será/serão reenviada(s) ao Supabase automaticamente.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Navigation */}
           <div className="bg-white p-2 sm:p-3 lg:p-4 rounded-t-3xl sm:rounded-2xl shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.05)] sm:shadow-sm border-t sm:border border-slate-100 flex lg:flex-col gap-1 sm:gap-2 fixed sm:static bottom-0 left-0 right-0 z-50 justify-start lg:justify-start px-2 sm:px-3 lg:px-4 pb-6 sm:pb-3 lg:pb-4 overflow-x-auto hide-scrollbar">
