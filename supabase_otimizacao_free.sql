@@ -138,3 +138,46 @@ BEGIN
       EXECUTE FUNCTION public.husf_prevent_suprema_market_listing();
   END IF;
 END $$;
+
+-- FILA VIRTUAL PARA PROTEGER O SUPABASE
+-- Crie essa tabela para limitar quantos colaboradores entram no app ao mesmo tempo.
+CREATE TABLE IF NOT EXISTS public.husf_queue_sessions (
+  cpf TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  sector TEXT NOT NULL,
+  last_seen TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS husf_queue_sessions_created_idx
+  ON public.husf_queue_sessions (created_at ASC);
+
+CREATE INDEX IF NOT EXISTS husf_queue_sessions_last_seen_idx
+  ON public.husf_queue_sessions (last_seen DESC);
+
+ALTER TABLE public.husf_queue_sessions ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  CREATE POLICY "Public Queue Select" ON public.husf_queue_sessions FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "Public Queue Insert" ON public.husf_queue_sessions FOR INSERT WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "Public Queue Update" ON public.husf_queue_sessions FOR UPDATE USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "Public Queue Delete" ON public.husf_queue_sessions FOR DELETE USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Limpeza manual opcional de sessões antigas da fila.
+DELETE FROM public.husf_queue_sessions
+WHERE last_seen < NOW() - INTERVAL '10 minutes';

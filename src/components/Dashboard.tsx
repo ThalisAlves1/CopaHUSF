@@ -9,7 +9,7 @@ const WelcomeScreen = lazy(() => import('./WelcomeScreen').then(module => ({ def
 const StudyMaterial = lazy(() => import('./StudyMaterial').then(module => ({ default: module.StudyMaterial })));
 import { getStoredUsers, formatCPF } from '../lib/auth';
 import { StickerDefinition, getStickerById, getAllStickers, getStoredStickers, saveStoredStickers } from '../lib/store';
-import { dbGetUsers, dbGetStickers, dbSaveSingleUser, dbDeleteUser, dbInsertSticker, dbUpdateSticker, dbDeleteSticker, dbSaveWholeCatalog, dbGetReleasedMetas, dbSaveReleasedMetas, dbGetPendingUserSyncCount, dbEnterVirtualQueue, dbLeaveVirtualQueue, getVirtualQueueSessionId, VIRTUAL_QUEUE_MAX_ACTIVE_USERS, type VirtualQueueStatus, subscribeToUsers, subscribeToStickers, subscribeToSettings, DB_DEFAULT_STICKERS, isSupabaseConfigured, lastSupabaseError, uploadStickerImageFile, mapSupabaseUserRow, normalizeCpf } from '../lib/supabase';
+import { dbGetUsers, dbGetStickers, dbSaveSingleUser, dbDeleteUser, dbInsertSticker, dbUpdateSticker, dbDeleteSticker, dbSaveWholeCatalog, dbGetReleasedMetas, dbSaveReleasedMetas, dbGetPendingUserSyncCount, dbEnterVirtualQueue, dbLeaveVirtualQueue, getVirtualQueueSessionId, VIRTUAL_QUEUE_MAX_ACTIVE_USERS, VIRTUAL_QUEUE_REFRESH_MS, type VirtualQueueStatus, subscribeToUsers, subscribeToStickers, subscribeToSettings, DB_DEFAULT_STICKERS, isSupabaseConfigured, lastSupabaseError, uploadStickerImageFile, mapSupabaseUserRow, normalizeCpf } from '../lib/supabase';
 import { StickerImage } from './StickerImage';
 import { appendActivityLog, createActivityEntry, formatActivityTime, getActivityBadgeClass, getActivityLog, getActivityTypeLabel } from '../lib/activity';
 
@@ -723,6 +723,9 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
 
   // Fila virtual: controla entrada simultânea quando há metas liberadas.
   // Quem estiver esperando não puxa módulos pesados do Supabase.
+  // Correção: a fila agora revalida a entrada automaticamente a cada 15s.
+  // Se alguém fechar o app e o navegador não avisar o Supabase, a vaga expira
+  // em cerca de 45s e o próximo colaborador entra sozinho.
   useEffect(() => {
     if (!shouldUseVirtualQueue) {
       setVirtualQueueStatus(null);
@@ -731,9 +734,12 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     }
 
     let active = true;
+    let refreshing = false;
     const sessionId = getVirtualQueueSessionId();
 
     const refreshQueue = async () => {
+      if (refreshing) return;
+      refreshing = true;
       try {
         const status = await dbEnterVirtualQueue(user, sessionId);
         if (active) {
@@ -755,25 +761,42 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
           });
           setVirtualQueueReady(true);
         }
+      } finally {
+        refreshing = false;
       }
     };
 
     setVirtualQueueReady(false);
     refreshQueue();
-    const interval = window.setInterval(refreshQueue, 30000);
+    const interval = window.setInterval(refreshQueue, VIRTUAL_QUEUE_REFRESH_MS);
 
-    const handleBeforeUnload = () => {
+    const leaveQueueNow = () => {
       void dbLeaveVirtualQueue(user.cpf, sessionId);
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshQueue();
+      }
+    };
+
+    window.addEventListener('pagehide', leaveQueueNow);
+    window.addEventListener('beforeunload', leaveQueueNow);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       active = false;
       window.clearInterval(interval);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', leaveQueueNow);
+      window.removeEventListener('beforeunload', leaveQueueNow);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [shouldUseVirtualQueue, user.cpf, user.name, user.sector, virtualQueueRefreshKey]);
+
+  const handleLogoutAndLeaveQueue = () => {
+    void dbLeaveVirtualQueue(user.cpf, getVirtualQueueSessionId());
+    onLogout();
+  };
 
   // Fetch and synchronize fresh statistics from Supabase Database asynchronously.
   // Modo econômico: não puxa usuários/figurinhas do banco a cada clique de aba.
@@ -1745,7 +1768,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   }, [usersList, individualRankingList]);
 
   if (isAppClosedForUser) {
-    return <AppClosedScreen user={user} onLogout={onLogout} releasedMetasReady={releasedMetasReady} />;
+    return <AppClosedScreen user={user} onLogout={handleLogoutAndLeaveQueue} releasedMetasReady={releasedMetasReady} />;
   }
 
   if (isCheckingVirtualQueue || isWaitingInVirtualQueue) {
@@ -1755,7 +1778,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
         status={virtualQueueStatus}
         queueReady={virtualQueueReady}
         onRefresh={() => setVirtualQueueRefreshKey(prev => prev + 1)}
-        onLogout={onLogout}
+        onLogout={handleLogoutAndLeaveQueue}
       />
     );
   }
@@ -1799,7 +1822,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                 {user.coins} Moedas
               </div>
               <button
-                onClick={onLogout}
+                onClick={handleLogoutAndLeaveQueue}
                 className="text-slate-500 hover:text-red-600 hover:bg-red-50 p-2 rounded-xl text-sm font-bold transition-colors flex items-center justify-center group gap-2"
                 title="Sair"
               >

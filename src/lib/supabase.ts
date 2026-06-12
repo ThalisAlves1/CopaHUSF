@@ -205,7 +205,11 @@ const PENDING_USER_SYNC_QUEUE_KEY = 'husf_pending_user_sync_queue_v1';
 const PENDING_USER_SYNC_MAX_ITEMS = 250;
 const VIRTUAL_QUEUE_SESSION_KEY = 'husf_virtual_queue_session_id_v1';
 export const VIRTUAL_QUEUE_MAX_ACTIVE_USERS = 120;
-const VIRTUAL_QUEUE_STALE_AFTER_MS = 2 * 60 * 1000;
+// Sessões paradas expiram rápido para quem está na fila entrar sozinho.
+// O app renova a sessão ativa automaticamente; se a pessoa fechar o navegador,
+// em poucos segundos a vaga fica livre para o próximo colaborador.
+export const VIRTUAL_QUEUE_REFRESH_MS = 15000;
+const VIRTUAL_QUEUE_STALE_AFTER_MS = 45 * 1000;
 
 export interface VirtualQueueStatus {
   allowed: boolean;
