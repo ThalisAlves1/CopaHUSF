@@ -4209,7 +4209,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       Atenção
                     </span>
                     <h2 id="market-news-title" className="mt-2 text-xl font-black leading-tight tracking-tight sm:text-2xl font-[Space_Grotesk]">
-                      Prazo das Metas 1 e 2 prorrogado!
+                      LIBERADOS AS METAS 1 e 2 
                     </h2>
                   </div>
                 </div>
