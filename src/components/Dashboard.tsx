@@ -25,6 +25,8 @@ const METAS = [
   { id: 6, title: 'Meta 6', desc: 'Reduzir o risco de quedas', fullDesc: 'Avaliar sistematicamente e mitigar os riscos de danos aos pacientes resultantes de quedas durante sua permanência na instituição. Isso abrange adequar o ambiente, utilizar pulseiras de identificação de risco e educar familiares e pacientes.', icon: <ShieldAlert className="w-6 h-6" />, color: 'bg-orange-500' },
 ];
 
+const RANKING_META_IDS = METAS.map(meta => meta.id).sort((a, b) => a - b);
+
 interface DashboardProps {
   user: User;
   onLogout: () => void;
@@ -969,11 +971,24 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
 
 
   const calculateUserEngagement = (u: User) => {
-    const metaIds = (releasedMetas.length > 0 ? releasedMetas : [1, 2, 3, 4, 5, 6])
-      .map(Number)
-      .filter(Boolean)
-      .sort((a, b) => a - b);
+    // O ranking deve considerar sempre todas as 6 metas da Copa,
+    // mesmo quando o admin libera apenas algumas no momento.
+    const metaIds = RANKING_META_IDS;
     const totalMetas = metaIds.length || 6;
+    const metaBreakdown = METAS.map(meta => {
+      const progress = u.progress?.[meta.id];
+      const completed = isMetaCompleted(progress);
+      const answered = hasMetaQuizActivity(progress);
+      return {
+        id: meta.id,
+        title: meta.title,
+        desc: meta.desc,
+        completed,
+        answered,
+        attempts: getMetaAttemptCount(progress),
+        coins: progress?.totalCoinsEarned || 0
+      };
+    });
 
     const totalQuizCoins = metaIds.reduce((sum, metaId) => {
       const prog = u.progress?.[metaId];
@@ -1012,6 +1027,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       metasParticipadas,
       metasConcluidas,
       totalMetas,
+      metaBreakdown,
       totalQuestionsAnswered,
       totalCorrectAnswers,
       averageResponseTimeMs,
@@ -2471,7 +2487,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                           <>
                             <p className="font-black">Ranking individual</p>
                             <p className="text-brand-700 text-xs sm:text-sm mt-0.5">
-                              Para os colaboradores, aparecem apenas nome, setor, aproveitamento e metas completadas.
+                              Para os colaboradores, aparecem nome, setor, aproveitamento e a quantidade feita considerando todas as 6 metas.
                             </p>
                           </>
                         )}
@@ -2493,7 +2509,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] sm:text-xs text-slate-500">
                               <span>Aproveitamento: <strong>{rankedUser.engagement.aproveitamento}%</strong></span>
                               <span className="text-slate-300">•</span>
-                              <span>Metas completas: <strong>{rankedUser.engagement.metasConcluidas}</strong>/{rankedUser.engagement.totalMetas}</span>
+                              <span>Metas feitas: <strong>{rankedUser.engagement.metasConcluidas}</strong>/{rankedUser.engagement.totalMetas}</span>
                               {user.isAdmin && (
                                 <>
                                   <span className="text-slate-300">•</span>
@@ -2504,6 +2520,23 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                                   <span>Carteira: <strong>{rankedUser.coins}</strong> moedas</span>
                                 </>
                               )}
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {rankedUser.engagement.metaBreakdown.map(metaStatus => (
+                                <span
+                                  key={metaStatus.id}
+                                  className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+                                    metaStatus.completed
+                                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                      : metaStatus.answered
+                                        ? 'border-amber-200 bg-amber-50 text-amber-700'
+                                        : 'border-slate-200 bg-slate-50 text-slate-400'
+                                  }`}
+                                  title={`${metaStatus.title} - ${metaStatus.completed ? 'feita' : metaStatus.answered ? 'em andamento' : 'pendente'}`}
+                                >
+                                  M{metaStatus.id} {metaStatus.completed ? '✓' : metaStatus.answered ? '•' : '-'}
+                                </span>
+                              ))}
                             </div>
                             <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
                               <div
