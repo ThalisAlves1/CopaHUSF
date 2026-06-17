@@ -23,6 +23,17 @@ export interface MetaProgress {
   isAmador: boolean; // Set to true after the first day of play
   hasPerfected?: boolean;
   totalAttempts?: number;
+  // Métricas extras para deixar o ranking mais justo.
+  // São opcionais para manter compatibilidade com usuários antigos já salvos no Supabase.
+  totalCorrectAnswers?: number;
+  totalQuestionsAnswered?: number;
+  totalResponseTimeMs?: number;
+  averageResponseTimeMs?: number;
+  bestAverageResponseTimeMs?: number;
+  lastAttemptCorrectAnswers?: number;
+  lastAttemptQuestions?: number;
+  lastAttemptResponseTimeMs?: number;
+  completedAt?: string;
 }
 
 export interface User {

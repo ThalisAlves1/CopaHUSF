@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Clock, ShieldAlert, CheckCircle2, XCircle, ArrowRight, Coins, Zap, Trophy } from 'lucide-react';
 import { Question, getRandomQuestions } from '../lib/questions';
 import { MetaProgress } from '../types';
 import { playSound } from '../lib/audio';
+
+const QUESTION_TIME_LIMIT_SECONDS = 20;
+const QUESTION_TIME_LIMIT_MS = QUESTION_TIME_LIMIT_SECONDS * 1000;
 
 interface QuizProps {
   metaId: number;
@@ -20,10 +23,12 @@ export function Quiz({ metaId, metaTitle, metaColor, progress, onComplete, onAbo
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isShowingFeedback, setIsShowingFeedback] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(20);
+  const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_LIMIT_SECONDS);
   const [isFinished, setIsFinished] = useState(false);
   const [currentAttemptNum, setCurrentAttemptNum] = useState(1);
-  const [finishData, setFinishData] = useState<{coinsToAward: number, newProgress: MetaProgress} | null>(null);
+  const [responseTimes, setResponseTimes] = useState<number[]>([]);
+  const questionStartedAtRef = useRef(performance.now());
+  const [finishData, setFinishData] = useState<{coinsToAward: number, newProgress: MetaProgress, attemptAverageSeconds: number} | null>(null);
 
   // Animated number component
   const AnimatedNumber = ({ value }: { value: number }) => {
@@ -60,7 +65,25 @@ export function Quiz({ metaId, metaTitle, metaColor, progress, onComplete, onAbo
   // Setup initial questions on mount
   useEffect(() => {
     setQuestions(getRandomQuestions(metaId, 5));
+    questionStartedAtRef.current = performance.now();
   }, [metaId]);
+
+  useEffect(() => {
+    questionStartedAtRef.current = performance.now();
+  }, [currentIndex]);
+
+  const recordResponseTime = (forcedMs?: number) => {
+    const elapsedMs = typeof forcedMs === 'number'
+      ? forcedMs
+      : performance.now() - questionStartedAtRef.current;
+    const safeElapsedMs = Math.round(Math.min(QUESTION_TIME_LIMIT_MS, Math.max(0, elapsedMs)));
+
+    setResponseTimes(prev => {
+      const next = [...prev];
+      next[currentIndex] = safeElapsedMs;
+      return next;
+    });
+  };
 
   // Timer logic
   useEffect(() => {
@@ -79,6 +102,8 @@ export function Quiz({ metaId, metaTitle, metaColor, progress, onComplete, onAbo
   }, [timeLeft, isShowingFeedback, isFinished, questions.length]);
 
   const handleTimeOut = () => {
+    if (isShowingFeedback) return;
+    recordResponseTime(QUESTION_TIME_LIMIT_MS);
     setSelectedOption(-1); // Represents timeout
     setIsShowingFeedback(true);
     playSound('error');
@@ -86,6 +111,7 @@ export function Quiz({ metaId, metaTitle, metaColor, progress, onComplete, onAbo
 
   const handleSelectOption = (index: number) => {
     if (isShowingFeedback) return;
+    recordResponseTime();
     setSelectedOption(index);
     setIsShowingFeedback(true);
     
@@ -102,7 +128,7 @@ export function Quiz({ metaId, metaTitle, metaColor, progress, onComplete, onAbo
       setCurrentIndex(prev => prev + 1);
       setSelectedOption(null);
       setIsShowingFeedback(false);
-      setTimeLeft(20);
+      setTimeLeft(QUESTION_TIME_LIMIT_SECONDS);
     } else {
       finishQuiz();
     }
@@ -133,6 +159,18 @@ export function Quiz({ metaId, metaTitle, metaColor, progress, onComplete, onAbo
     const coinsToAward = Math.max(0, Math.min(150 - currentTotal, coinsOfThisAttempt));
     const isPerfectFirstAttempt = currentAttemptNum === 1 && correctCount === questions.length;
 
+    const answeredTimes = Array.from({ length: questions.length }, (_, index) => responseTimes[index] ?? QUESTION_TIME_LIMIT_MS);
+    const attemptResponseTimeMs = answeredTimes.reduce((sum, ms) => sum + ms, 0);
+    const attemptAverageResponseTimeMs = questions.length > 0 ? attemptResponseTimeMs / questions.length : QUESTION_TIME_LIMIT_MS;
+    const previousQuestionsAnswered = progress?.totalQuestionsAnswered || 0;
+    const totalQuestionsAnswered = previousQuestionsAnswered + questions.length;
+    const totalResponseTimeMs = (progress?.totalResponseTimeMs || 0) + attemptResponseTimeMs;
+    const averageResponseTimeMs = totalQuestionsAnswered > 0 ? totalResponseTimeMs / totalQuestionsAnswered : attemptAverageResponseTimeMs;
+    const previousBestAverage = progress?.bestAverageResponseTimeMs;
+    const bestAverageResponseTimeMs = previousBestAverage
+      ? Math.min(previousBestAverage, attemptAverageResponseTimeMs)
+      : attemptAverageResponseTimeMs;
+
     const newProgress: MetaProgress = {
       metaId,
       lastPlayedDate: today,
@@ -143,10 +181,19 @@ export function Quiz({ metaId, metaTitle, metaColor, progress, onComplete, onAbo
       highestCoinsToday: Math.max(progress?.highestCoinsToday || 0, coinsOfThisAttempt),
       totalCoinsEarned: Math.min(150, currentTotal + coinsToAward),
       isAmador,
-      hasPerfected: !!progress?.hasPerfected || isPerfectFirstAttempt
+      hasPerfected: !!progress?.hasPerfected || isPerfectFirstAttempt,
+      totalCorrectAnswers: (progress?.totalCorrectAnswers || 0) + correctCount,
+      totalQuestionsAnswered,
+      totalResponseTimeMs,
+      averageResponseTimeMs,
+      bestAverageResponseTimeMs,
+      lastAttemptCorrectAnswers: correctCount,
+      lastAttemptQuestions: questions.length,
+      lastAttemptResponseTimeMs: attemptResponseTimeMs,
+      completedAt: new Date().toISOString()
     };
 
-    setFinishData({ coinsToAward, newProgress });
+    setFinishData({ coinsToAward, newProgress, attemptAverageSeconds: Math.round((attemptAverageResponseTimeMs / 1000) * 10) / 10 });
   };
 
   const handleRetry = () => {
@@ -157,7 +204,9 @@ export function Quiz({ metaId, metaTitle, metaColor, progress, onComplete, onAbo
     setSelectedOption(null);
     setIsShowingFeedback(false);
     setCorrectCount(0);
-    setTimeLeft(20);
+    setTimeLeft(QUESTION_TIME_LIMIT_SECONDS);
+    setResponseTimes([]);
+    questionStartedAtRef.current = performance.now();
     setQuestions(getRandomQuestions(metaId, 5));
   };
 
@@ -216,6 +265,7 @@ export function Quiz({ metaId, metaTitle, metaColor, progress, onComplete, onAbo
 
                 <button
                   onClick={() => onComplete(0, correctCount, {
+                    ...progress,
                     metaId,
                     lastPlayedDate: new Date().toISOString().split('T')[0],
                     attemptsToday: (progress?.attemptsToday || 0) + 1,
@@ -232,7 +282,8 @@ export function Quiz({ metaId, metaTitle, metaColor, progress, onComplete, onAbo
             ) : (
               <>
                 <h2 className="text-2xl font-bold text-slate-800 mb-1 font-[Space_Grotesk]">Resultado da {currentAttemptNum}ª Tentativa</h2>
-                <p className="text-sm text-slate-500 mb-4 font-medium">Você acertou <span className="text-brand-600 font-bold">{correctCount}</span> de 5 perguntas.</p>
+                <p className="text-sm text-slate-500 mb-2 font-medium">Você acertou <span className="text-brand-600 font-bold">{correctCount}</span> de 5 perguntas.</p>
+                <p className="text-xs text-slate-500 mb-4 font-bold">Tempo médio de resposta: <span className="text-brand-600">{finishData.attemptAverageSeconds}s</span></p>
 
                 <div className="w-full bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 sm:p-5 mb-6 relative overflow-hidden shadow-inner flex flex-col items-center">
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 bg-amber-400 blur-3xl opacity-20 rounded-full pointer-events-none" />
@@ -336,7 +387,7 @@ export function Quiz({ metaId, metaTitle, metaColor, progress, onComplete, onAbo
               key={`timer-${currentIndex}`}
               initial={{ width: '100%' }}
               animate={{ width: '0%' }}
-              transition={{ duration: 20, ease: 'linear' }}
+              transition={{ duration: QUESTION_TIME_LIMIT_SECONDS, ease: 'linear' }}
               className={`h-full rounded-r-full ${timeLeft <= 5 ? 'bg-red-400' : 'bg-white'}`}
             />
           </div>

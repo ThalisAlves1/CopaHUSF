@@ -55,6 +55,15 @@ const STICKER_IMAGE_MAX_DIMENSION = 700;
 const STICKER_IMAGE_QUALITY = 0.75;
 const RANKING_DISPLAY_LIMIT = 100;
 const ADMIN_USERS_FETCH_LIMIT = 2000; // Base completa só quando necessário no admin/monitoramento. Suporta os 1.238 colaboradores.
+const RANKING_SPEED_LIMIT_MS = 20_000;
+const RANKING_SPEED_NEUTRAL_SCORE = 50;
+
+const clampNumber = (value: number, min = 0, max = 100) => Math.min(max, Math.max(min, value));
+const roundOneDecimal = (value: number) => Math.round(value * 10) / 10;
+const formatAverageSeconds = (milliseconds?: number | null) => {
+  if (!milliseconds || !Number.isFinite(milliseconds) || milliseconds <= 0) return '--';
+  return `${roundOneDecimal(milliseconds / 1000)}s`;
+};
 
 const normalizeTextKey = (value: string | null | undefined) => String(value || '')
   .normalize('NFD')
@@ -343,6 +352,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   const [searchQuery, setSearchQuery] = useState('');
   const [adminRefresh, setAdminRefresh] = useState(0);
   const [adminSection, setAdminSection] = useState<AdminSection>('overview');
+  const [adminViewedUserCpf, setAdminViewedUserCpf] = useState<string | null>(null);
   const [quizResult, setQuizResult] = useState<{coins: number, correct: number} | null>(null);
   const [showMarketNewsModal, setShowMarketNewsModal] = useState(false);
   const [tradingInitialMode, setTradingInitialMode] = useState<'trocas' | 'mercado'>('trocas');
@@ -959,22 +969,58 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
 
 
   const calculateUserEngagement = (u: User) => {
-    const metaIds = [1, 2, 3, 4, 5, 6];
+    const metaIds = (releasedMetas.length > 0 ? releasedMetas : [1, 2, 3, 4, 5, 6])
+      .map(Number)
+      .filter(Boolean)
+      .sort((a, b) => a - b);
+    const totalMetas = metaIds.length || 6;
+
     const totalQuizCoins = metaIds.reduce((sum, metaId) => {
       const prog = u.progress?.[metaId];
       return sum + (prog?.totalCoinsEarned || 0);
     }, 0);
-    const maxQuizCoins = metaIds.length * 150; // 6 metas x 150 pontos = 900 pontos possíveis
-    const aproveitamento = maxQuizCoins > 0 ? Math.round((totalQuizCoins / maxQuizCoins) * 1000) / 10 : 0;
-    const metasParticipadas = metaIds.filter(metaId => (u.progress?.[metaId]?.totalCoinsEarned || 0) > 0).length;
+
+    const maxQuizCoins = totalMetas * 150;
+    const aproveitamento = maxQuizCoins > 0 ? roundOneDecimal((totalQuizCoins / maxQuizCoins) * 100) : 0;
+    const metasParticipadas = metaIds.filter(metaId => hasMetaQuizActivity(u.progress?.[metaId])).length;
     const metasConcluidas = metaIds.filter(metaId => isMetaCompleted(u.progress?.[metaId])).length;
+
+    const totalQuestionsAnswered = metaIds.reduce((sum, metaId) => sum + (u.progress?.[metaId]?.totalQuestionsAnswered || 0), 0);
+    const totalCorrectAnswers = metaIds.reduce((sum, metaId) => sum + (u.progress?.[metaId]?.totalCorrectAnswers || 0), 0);
+    const totalResponseTimeMs = metaIds.reduce((sum, metaId) => sum + (u.progress?.[metaId]?.totalResponseTimeMs || 0), 0);
+    const averageResponseTimeMs = totalQuestionsAnswered > 0 ? totalResponseTimeMs / totalQuestionsAnswered : null;
+    const hasSpeedData = !!averageResponseTimeMs && totalQuestionsAnswered > 0;
+    const speedScore = hasSpeedData
+      ? roundOneDecimal(clampNumber(((RANKING_SPEED_LIMIT_MS - averageResponseTimeMs) / RANKING_SPEED_LIMIT_MS) * 100))
+      : RANKING_SPEED_NEUTRAL_SCORE;
+    const completionScore = totalMetas > 0 ? roundOneDecimal((metasConcluidas / totalMetas) * 100) : 0;
+    const participationScore = totalMetas > 0 ? roundOneDecimal((metasParticipadas / totalMetas) * 100) : 0;
+
+    // Fórmula do ranking justo:
+    // 70% aproveitamento + 20% velocidade + 10% metas concluídas.
+    // Participação entra como desempate para não premiar quem fez só uma meta.
+    const rankingScore = roundOneDecimal(
+      aproveitamento * 0.70 +
+      speedScore * 0.20 +
+      completionScore * 0.10
+    );
 
     return {
       totalQuizCoins,
       maxQuizCoins,
       aproveitamento,
       metasParticipadas,
-      metasConcluidas
+      metasConcluidas,
+      totalMetas,
+      totalQuestionsAnswered,
+      totalCorrectAnswers,
+      averageResponseTimeMs,
+      averageResponseTimeLabel: formatAverageSeconds(averageResponseTimeMs),
+      hasSpeedData,
+      speedScore,
+      completionScore,
+      participationScore,
+      rankingScore
     };
   };
 
@@ -986,8 +1032,17 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
         engagement: calculateUserEngagement(u)
       }))
       .sort((a, b) => {
+        if (b.engagement.rankingScore !== a.engagement.rankingScore) {
+          return b.engagement.rankingScore - a.engagement.rankingScore;
+        }
         if (b.engagement.aproveitamento !== a.engagement.aproveitamento) {
           return b.engagement.aproveitamento - a.engagement.aproveitamento;
+        }
+        if (b.engagement.speedScore !== a.engagement.speedScore) {
+          return b.engagement.speedScore - a.engagement.speedScore;
+        }
+        if (b.engagement.participationScore !== a.engagement.participationScore) {
+          return b.engagement.participationScore - a.engagement.participationScore;
         }
         if (b.engagement.totalQuizCoins !== a.engagement.totalQuizCoins) {
           return b.engagement.totalQuizCoins - a.engagement.totalQuizCoins;
@@ -997,35 +1052,74 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   };
 
   const computeSectorRanking = () => {
-    const sectorMap: Record<string, { totalCoins: number, memberCount: number, totalQuizCoins: number }> = {};
+    const sectorMap: Record<string, {
+      totalCoins: number;
+      memberCount: number;
+      totalQuizCoins: number;
+      totalRankingScore: number;
+      totalAproveitamento: number;
+      totalSpeedScore: number;
+      totalMetasConcluidas: number;
+      totalMetas: number;
+      speedDataCount: number;
+    }> = {};
+
     usersList.forEach(u => {
       if (u.isAdmin) return; // Excluir administradores da pontuação de setores
-      if (!sectorMap[u.sector]) {
-        sectorMap[u.sector] = { totalCoins: 0, memberCount: 0, totalQuizCoins: 0 };
+      const sectorName = u.sector || 'Outro Setor';
+      if (!sectorMap[sectorName]) {
+        sectorMap[sectorName] = {
+          totalCoins: 0,
+          memberCount: 0,
+          totalQuizCoins: 0,
+          totalRankingScore: 0,
+          totalAproveitamento: 0,
+          totalSpeedScore: 0,
+          totalMetasConcluidas: 0,
+          totalMetas: 0,
+          speedDataCount: 0
+        };
       }
-      sectorMap[u.sector].totalCoins += u.coins || 0;
-      sectorMap[u.sector].memberCount += 1;
-      sectorMap[u.sector].totalQuizCoins += calculateUserEngagement(u).totalQuizCoins;
+
+      const engagement = calculateUserEngagement(u);
+      sectorMap[sectorName].totalCoins += u.coins || 0;
+      sectorMap[sectorName].memberCount += 1;
+      sectorMap[sectorName].totalQuizCoins += engagement.totalQuizCoins;
+      sectorMap[sectorName].totalRankingScore += engagement.rankingScore;
+      sectorMap[sectorName].totalAproveitamento += engagement.aproveitamento;
+      sectorMap[sectorName].totalSpeedScore += engagement.speedScore;
+      sectorMap[sectorName].totalMetasConcluidas += engagement.metasConcluidas;
+      sectorMap[sectorName].totalMetas += engagement.totalMetas;
+      if (engagement.hasSpeedData) sectorMap[sectorName].speedDataCount += 1;
     });
 
     return Object.entries(sectorMap)
       .map(([name, data]) => {
-        const maxQuizCoins = data.memberCount * 6 * 150; // Max possible is 900 per member
-        const aproveitamento = maxQuizCoins > 0 ? Math.round((data.totalQuizCoins / maxQuizCoins) * 1000) / 10 : 0;
-        return { name, ...data, aproveitamento };
+        const score = data.memberCount > 0 ? roundOneDecimal(data.totalRankingScore / data.memberCount) : 0;
+        const aproveitamento = data.memberCount > 0 ? roundOneDecimal(data.totalAproveitamento / data.memberCount) : 0;
+        const speedScore = data.memberCount > 0 ? roundOneDecimal(data.totalSpeedScore / data.memberCount) : RANKING_SPEED_NEUTRAL_SCORE;
+        const completionScore = data.totalMetas > 0 ? roundOneDecimal((data.totalMetasConcluidas / data.totalMetas) * 100) : 0;
+        return { name, ...data, score, aproveitamento, speedScore, completionScore };
       })
       .sort((a, b) => {
         const activeMetric = user.isAdmin ? sectorRankingMetric : 'average';
         if (activeMetric === 'average') {
-          return b.aproveitamento - a.aproveitamento;
+          if (b.score !== a.score) return b.score - a.score;
+          if (b.aproveitamento !== a.aproveitamento) return b.aproveitamento - a.aproveitamento;
+          return b.speedScore - a.speedScore;
         }
         return b.totalCoins - a.totalCoins;
       });
   };
-  const individualRankingList = useMemo(() => computeIndividualRanking(), [usersList]);
-  const sectorRankingList = useMemo(() => computeSectorRanking(), [usersList, sectorRankingMetric, user.isAdmin]);
+  const individualRankingList = useMemo(() => computeIndividualRanking(), [usersList, releasedMetas]);
+  const sectorRankingList = useMemo(() => computeSectorRanking(), [usersList, sectorRankingMetric, user.isAdmin, releasedMetas]);
   const visibleIndividualRanking = useMemo(() => individualRankingList.slice(0, RANKING_DISPLAY_LIMIT), [individualRankingList]);
   const visibleSectorRanking = useMemo(() => sectorRankingList.slice(0, RANKING_DISPLAY_LIMIT), [sectorRankingList]);
+  const adminViewedUser = useMemo(() => {
+    if (!adminViewedUserCpf) return null;
+    const viewedCpf = normalizeCpf(adminViewedUserCpf);
+    return usersList.find(u => normalizeCpf(u.cpf) === viewedCpf) || null;
+  }, [usersList, adminViewedUserCpf]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -1517,8 +1611,14 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
         engagement: calculateUserEngagement(u)
       }))
       .sort((a, b) => {
+        if (b.engagement.rankingScore !== a.engagement.rankingScore) {
+          return b.engagement.rankingScore - a.engagement.rankingScore;
+        }
         if (b.engagement.aproveitamento !== a.engagement.aproveitamento) {
           return b.engagement.aproveitamento - a.engagement.aproveitamento;
+        }
+        if (b.engagement.speedScore !== a.engagement.speedScore) {
+          return b.engagement.speedScore - a.engagement.speedScore;
         }
         if (b.engagement.totalQuizCoins !== a.engagement.totalQuizCoins) {
           return b.engagement.totalQuizCoins - a.engagement.totalQuizCoins;
@@ -1540,8 +1640,8 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       rankPosition: rankIndex >= 0 ? rankIndex + 1 : null,
       totalRanked: rankedUsers.length,
       nextRankedName: nextRanked?.name,
-      pointsToNextRank: nextRanked ? Math.max(1, nextRanked.engagement.totalQuizCoins - currentEngagement.totalQuizCoins + 1) : 0,
-      engagementPercent: currentEngagement.aproveitamento,
+      pointsToNextRank: nextRanked ? Math.max(0.1, roundOneDecimal(nextRanked.engagement.rankingScore - currentEngagement.rankingScore + 0.1)) : 0,
+      engagementPercent: currentEngagement.rankingScore,
       totalQuizCoins: currentEngagement.totalQuizCoins,
       maxQuizCoins: currentEngagement.maxQuizCoins,
       completedMetas: currentEngagement.metasConcluidas,
@@ -2285,7 +2385,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                className="fixed inset-0 z-[160] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
                 onClick={() => setZoomedSticker(null)}
               >
                 <motion.div
@@ -2360,9 +2460,9 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                     <div className="flex items-start gap-3 bg-brand-50 border border-brand-100 rounded-xl p-3 sm:p-4 text-sm text-brand-900">
                       <Zap className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-black">Critério do ranking individual: engajamento.</p>
+                        <p className="font-black">Critério do ranking individual: nota justa.</p>
                         <p className="text-brand-700 text-xs sm:text-sm mt-0.5">
-                          A posição agora considera o aproveitamento nos quizzes das metas, igual ao ranking dos setores. As moedas da carteira não definem mais a colocação.
+                          Fórmula: 70% aproveitamento, 20% velocidade média e 10% metas concluídas. Em empate, entram participação, pontos dos quizzes e nome.
                         </p>
                       </div>
                     </div>
@@ -2380,9 +2480,13 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                             <h3 className="font-bold text-slate-800 safe-text text-sm sm:text-base">{rankedUser.name}</h3>
                             <p className="text-xs sm:text-sm text-slate-500 safe-text">{rankedUser.sector}</p>
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] sm:text-xs text-slate-500">
-                              <span>Pontos Quizzes: <strong>{rankedUser.engagement.totalQuizCoins}</strong>/{rankedUser.engagement.maxQuizCoins}</span>
+                              <span>Aproveitamento: <strong>{rankedUser.engagement.aproveitamento}%</strong></span>
                               <span className="text-slate-300">•</span>
-                              <span>Metas completas: <strong>{rankedUser.engagement.metasConcluidas}</strong>/6</span>
+                              <span>Velocidade: <strong>{rankedUser.engagement.hasSpeedData ? rankedUser.engagement.averageResponseTimeLabel : 'sem tempo novo'}</strong></span>
+                              <span className="text-slate-300">•</span>
+                              <span>Metas completas: <strong>{rankedUser.engagement.metasConcluidas}</strong>/{rankedUser.engagement.totalMetas}</span>
+                              <span className="text-slate-300">•</span>
+                              <span>Pontos quizzes: <strong>{rankedUser.engagement.totalQuizCoins}</strong>/{rankedUser.engagement.maxQuizCoins}</span>
                               {user.isAdmin && (
                                 <>
                                   <span className="text-slate-300">•</span>
@@ -2393,17 +2497,26 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                             <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-brand-600 rounded-full transition-all"
-                                style={{ width: `${Math.min(100, Math.max(0, rankedUser.engagement.aproveitamento))}%` }}
+                                style={{ width: `${Math.min(100, Math.max(0, rankedUser.engagement.rankingScore))}%` }}
                               />
                             </div>
                           </div>
                           <div className="shrink-0 flex flex-col items-end gap-0.5">
                             <div className="flex items-center gap-1 font-black text-brand-700 bg-brand-50 px-2 sm:px-3 py-1 rounded-lg border border-brand-100 text-sm sm:text-base">
-                              {rankedUser.engagement.aproveitamento}% <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-600" />
+                              {rankedUser.engagement.rankingScore}% <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-600" />
                             </div>
                             <span className="text-[9px] text-slate-400 font-extrabold tracking-wider uppercase">
-                              Engajamento
+                              Nota final
                             </span>
+                            {user.isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => setAdminViewedUserCpf(rankedUser.cpf)}
+                                className="mt-1 rounded-lg border border-brand-100 bg-white px-2 py-1 text-[10px] font-black text-brand-700 hover:bg-brand-50 transition-all"
+                              >
+                                Ver perfil
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -2419,7 +2532,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                             Opções de Administrador (Critério de Classificação)
                           </span>
                           <span className="text-[11px] text-slate-500 block">
-                            Selecione como quer analisar: por média de aproveitamento ou moedas totais na carteira.
+                            Selecione como quer analisar: por nota justa média ou moedas totais na carteira.
                           </span>
                         </div>
                         <div className="flex bg-slate-200/60 p-1 rounded-lg self-start sm:self-auto shrink-0">
@@ -2428,7 +2541,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                             onClick={() => setSectorRankingMetric('average')}
                             className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${sectorRankingMetric === 'average' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                           >
-                            Aproveitamento % (Mais Justo)
+                            Nota justa %
                           </button>
                           <button
                             type="button"
@@ -2458,8 +2571,12 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                                 <span><strong>{sector.memberCount}</strong> {sector.memberCount === 1 ? 'membro' : 'membros'}</span>
                                 <span className="text-slate-300">•</span>
                                 <span className={!showTotalWalletCoins ? 'text-brand-750 font-bold' : ''}>
-                                  Aproveitamento: <strong>{sector.aproveitamento}%</strong>
+                                  Nota justa: <strong>{sector.score}%</strong>
                                 </span>
+                                <span className="text-slate-300">•</span>
+                                <span>Aproveitamento: <strong>{sector.aproveitamento}%</strong></span>
+                                <span className="text-slate-300">•</span>
+                                <span>Velocidade: <strong>{sector.speedScore}%</strong></span>
                                 {user.isAdmin && (
                                   <>
                                     <span className="text-slate-300">•</span>
@@ -2480,12 +2597,12 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                                   </>
                                 ) : (
                                   <>
-                                    {sector.aproveitamento}%
+                                    {sector.score}%
                                   </>
                                 )}
                               </div>
                               <span className="text-[9px] text-slate-400 font-extrabold tracking-wider uppercase">
-                                {showTotalWalletCoins ? 'Carteira' : 'Aproveitamento'}
+                                {showTotalWalletCoins ? 'Carteira' : 'Nota justa'}
                               </span>
                             </div>
                           </div>
@@ -3810,6 +3927,15 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                           {/* Quick Admin action links */}
                           <td className="py-3 text-right pr-2">
                             <div className="inline-flex items-center gap-2 justify-end">
+                              <button
+                                type="button"
+                                onClick={() => setAdminViewedUserCpf(u.cpf)}
+                                className="text-[10px] font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-lg px-2 py-1 transition-all active:scale-95 cursor-pointer"
+                                title="Ver perfil, metas e álbum do colaborador"
+                              >
+                                Perfil
+                              </button>
+
                               {/* Reward buttons */}
                               <button 
                                 onClick={() => handleRewardUser(u.cpf, 100)}
@@ -3966,6 +4092,13 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                           <td className="px-4 py-3">
                             <p className="font-black text-slate-800 text-sm safe-text">{row.collaborator.name}</p>
                             <p className="text-[11px] text-slate-500 font-semibold safe-text">{row.collaborator.sector}</p>
+                            <button
+                              type="button"
+                              onClick={() => setAdminViewedUserCpf(row.collaborator.cpf)}
+                              className="mt-1 inline-flex rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-black text-slate-700 hover:bg-white hover:text-brand-700 transition-all"
+                            >
+                              Ver perfil completo
+                            </button>
                           </td>
                           <td className="px-4 py-3">
                             {row.didAnyQuiz ? (
@@ -4169,6 +4302,228 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       </div>
 
       <AnimatePresence>
+        {user.isAdmin && adminViewedUser && (
+          <motion.div
+            className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/70 px-3 py-5 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-profile-viewer-title"
+            onClick={() => setAdminViewedUserCpf(null)}
+          >
+            {(() => {
+              const viewedUser = adminViewedUser as User;
+              const engagement = calculateUserEngagement(viewedUser);
+              const viewedStickerIds = new Set(viewedUser.stickers || []);
+              const collectedStickers = allStickersCatalog.filter(sticker => viewedStickerIds.has(sticker.id));
+              const uniqueCollectedCount = collectedStickers.length;
+              const collectionPercent = allStickersCatalog.length > 0
+                ? roundOneDecimal((uniqueCollectedCount / allStickersCatalog.length) * 100)
+                : 0;
+              const viewedActivities = getActivityLog(viewedUser).slice(0, 8);
+
+              return (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96, y: 18 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.97, y: 12 }}
+                  transition={{ type: 'spring', stiffness: 220, damping: 24 }}
+                  className="relative w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-[2rem] border border-white/20 bg-slate-50 shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="sticky top-0 z-20 overflow-hidden rounded-t-[2rem] bg-gradient-to-r from-slate-950 via-brand-800 to-emerald-700 p-5 text-white shadow-lg">
+                    <div className="absolute -right-12 -top-16 h-40 w-40 rounded-full bg-amber-300/20 blur-3xl" />
+                    <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/15 text-2xl font-black shadow-lg backdrop-blur">
+                          {viewedUser.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="inline-flex rounded-full bg-white/15 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-100">
+                            Visualização do administrador
+                          </span>
+                          <h2 id="admin-profile-viewer-title" className="mt-2 text-2xl sm:text-3xl font-black leading-tight font-[Space_Grotesk] safe-text">
+                            {viewedUser.name}
+                          </h2>
+                          <p className="text-sm font-semibold text-emerald-100 safe-text">{viewedUser.sector} • CPF {formatCPF(viewedUser.cpf)}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setAdminViewedUserCpf(null)}
+                        className="absolute right-0 top-0 sm:static rounded-full bg-white/15 p-2 text-white transition hover:bg-white/25"
+                        aria-label="Fechar perfil do colaborador"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-4 sm:p-6 space-y-6">
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                      <div className="rounded-2xl border border-brand-100 bg-white p-4 shadow-sm">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Nota justa</p>
+                        <p className="mt-1 text-3xl font-black text-brand-700 font-[Space_Grotesk]">{engagement.rankingScore}%</p>
+                        <p className="text-[11px] font-semibold text-slate-500">70% aproveitamento + velocidade + metas</p>
+                      </div>
+                      <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Aproveitamento</p>
+                        <p className="mt-1 text-3xl font-black text-emerald-700 font-[Space_Grotesk]">{engagement.aproveitamento}%</p>
+                        <p className="text-[11px] font-semibold text-slate-500">{engagement.totalQuizCoins}/{engagement.maxQuizCoins} pontos nos quizzes</p>
+                      </div>
+                      <div className="rounded-2xl border border-amber-100 bg-white p-4 shadow-sm">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Velocidade média</p>
+                        <p className="mt-1 text-3xl font-black text-amber-700 font-[Space_Grotesk]">{engagement.hasSpeedData ? engagement.averageResponseTimeLabel : '--'}</p>
+                        <p className="text-[11px] font-semibold text-slate-500">{engagement.hasSpeedData ? `${engagement.speedScore}% no critério velocidade` : 'Sem tempo novo registrado'}</p>
+                      </div>
+                      <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Metas concluídas</p>
+                        <p className="mt-1 text-3xl font-black text-blue-700 font-[Space_Grotesk]">{engagement.metasConcluidas}/{engagement.totalMetas}</p>
+                        <p className="text-[11px] font-semibold text-slate-500">{engagement.metasParticipadas} metas respondidas</p>
+                      </div>
+                      <div className="rounded-2xl border border-purple-100 bg-white p-4 shadow-sm">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Álbum</p>
+                        <p className="mt-1 text-3xl font-black text-purple-700 font-[Space_Grotesk]">{uniqueCollectedCount}/{allStickersCatalog.length}</p>
+                        <p className="text-[11px] font-semibold text-slate-500">{collectionPercent}% das figurinhas</p>
+                      </div>
+                    </div>
+
+                    <div className="grid lg:grid-cols-2 gap-6">
+                      <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+                        <div className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-4">
+                          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                          <div>
+                            <h3 className="font-black text-slate-800 font-[Space_Grotesk]">Situação das metas</h3>
+                            <p className="text-xs font-semibold text-slate-500">Veja o que respondeu, concluiu e quantas tentativas fez.</p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          {METAS.map((meta) => {
+                            const progress = viewedUser.progress?.[meta.id];
+                            const answered = hasMetaQuizActivity(progress);
+                            const completed = isMetaCompleted(progress);
+                            const released = releasedMetas.includes(meta.id);
+                            return (
+                              <div key={`admin-profile-meta-${meta.id}`} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider border ${completed ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : answered ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                                        {completed ? 'Concluída' : answered ? 'Respondida' : 'Pendente'}
+                                      </span>
+                                      <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider border ${released ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                                        {released ? 'Liberada' : 'Bloqueada'}
+                                      </span>
+                                    </div>
+                                    <h4 className="mt-2 font-black text-slate-800 safe-text">{meta.title}: {meta.desc}</h4>
+                                    <p className="mt-1 text-[11px] font-semibold text-slate-500 safe-text">
+                                      Último acesso: {progress?.lastPlayedDate ? formatActivityTime(progress.lastPlayedDate) : 'sem registro'}
+                                    </p>
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[240px]">
+                                    <div className="rounded-xl bg-white px-2 py-2 border border-slate-100">
+                                      <p className="text-[9px] font-black uppercase text-slate-400">Pontos</p>
+                                      <p className="font-black text-slate-800">{progress?.totalCoinsEarned || 0}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-white px-2 py-2 border border-slate-100">
+                                      <p className="text-[9px] font-black uppercase text-slate-400">Tentativas</p>
+                                      <p className="font-black text-slate-800">{getMetaAttemptCount(progress)}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-white px-2 py-2 border border-slate-100">
+                                      <p className="text-[9px] font-black uppercase text-slate-400">Tempo</p>
+                                      <p className="font-black text-slate-800">{formatAverageSeconds(progress?.averageResponseTimeMs || progress?.bestAverageResponseTimeMs)}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+
+                      <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+                        <div className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-4">
+                          <LayoutGrid className="h-5 w-5 text-purple-500" />
+                          <div>
+                            <h3 className="font-black text-slate-800 font-[Space_Grotesk]">Álbum do colaborador</h3>
+                            <p className="text-xs font-semibold text-slate-500">Figurinhas coloridas foram conquistadas; cinzas ainda faltam.</p>
+                          </div>
+                        </div>
+
+                        <div className="mb-4 h-2 overflow-hidden rounded-full bg-slate-100">
+                          <div className="h-full rounded-full bg-purple-600" style={{ width: `${Math.min(100, Math.max(0, collectionPercent))}%` }} />
+                        </div>
+
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 max-h-[520px] overflow-y-auto pr-1">
+                          {allStickersCatalog.map((sticker) => {
+                            const hasSticker = viewedStickerIds.has(sticker.id);
+                            return (
+                              <div
+                                key={`admin-profile-sticker-${sticker.id}`}
+                                onClick={() => hasSticker && setZoomedSticker(sticker)}
+                                title={`${sticker.name} ${hasSticker ? 'conquistada' : 'faltando'}`}
+                                className={`aspect-[2.5/3.5] rounded-xl border p-1.5 text-center transition-all ${hasSticker ? 'cursor-pointer bg-white border-purple-100 shadow-sm hover:scale-[1.03]' : 'bg-slate-100 border-slate-200 opacity-70'}`}
+                              >
+                                {hasSticker ? (
+                                  <>
+                                    <StickerImage id={sticker.id} name={sticker.name} customImage={sticker.image} className="!max-h-[90px]" />
+                                    <p className="mt-1 line-clamp-2 text-[9px] font-black uppercase leading-tight text-slate-700">{sticker.name}</p>
+                                  </>
+                                ) : (
+                                  <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 text-slate-400">
+                                    <span className="text-2xl font-black font-[Space_Grotesk]">#{sticker.id}</span>
+                                    <p className="mt-1 line-clamp-2 px-1 text-[8px] font-black uppercase leading-tight">{sticker.name}</p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    </div>
+
+                    <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+                      <div className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-4">
+                        <Zap className="h-5 w-5 text-brand-500" />
+                        <div>
+                          <h3 className="font-black text-slate-800 font-[Space_Grotesk]">Histórico recente</h3>
+                          <p className="text-xs font-semibold text-slate-500">Últimas movimentações salvas desse participante.</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        {viewedActivities.length > 0 ? viewedActivities.map((entry) => (
+                          <div key={`admin-view-activity-${entry.id}`} className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-xs">
+                            <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <span className={`inline-flex rounded-lg border px-2 py-1 text-[9px] font-black uppercase tracking-wider ${getActivityBadgeClass(entry.type)}`}>
+                                  {getActivityTypeLabel(entry.type)}
+                                </span>
+                                <p className="mt-2 font-black text-slate-800">{entry.title}</p>
+                                <p className="mt-0.5 font-semibold text-slate-500">{entry.description}</p>
+                              </div>
+                              <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap">{formatActivityTime(entry.createdAt)}</span>
+                            </div>
+                          </div>
+                        )) : (
+                          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center text-sm font-semibold text-slate-400">
+                            Ainda não existe histórico recente para este colaborador.
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  </div>
+                </motion.div>
+              );
+            })()}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {showMarketNewsModal && !user.isAdmin && (
           <motion.div
             className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 px-4 py-6 backdrop-blur-sm"
@@ -4209,14 +4564,14 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       Atenção
                     </span>
                     <h2 id="market-news-title" className="mt-2 text-xl font-black leading-tight tracking-tight sm:text-2xl font-[Space_Grotesk]">
-                      LIBERADOS AS METAS 3 e 4 !
+                      Prazo das Metas 1 e 2 prorrogado!
                     </h2>
                   </div>
                 </div>
 
                 <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
                   <p className="text-sm font-semibold leading-relaxed text-slate-600">
-                    ATENÇÃO: METAS 3 E 4 JÁ ESTÃO LIBERADAS ATÉ O DIA 21/06/2026.
+                    ATENÇÃO: PRORROGADO A DATA LIMITE DAS METAS 1 E 2 ATÉ O DIA 12/06/2026.
                   </p>
 
                   <div className="mt-4 grid gap-2 text-xs font-bold text-slate-600">
