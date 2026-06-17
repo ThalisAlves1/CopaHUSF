@@ -2460,10 +2460,21 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                     <div className="flex items-start gap-3 bg-brand-50 border border-brand-100 rounded-xl p-3 sm:p-4 text-sm text-brand-900">
                       <Zap className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-black">Critério do ranking individual: nota justa.</p>
-                        <p className="text-brand-700 text-xs sm:text-sm mt-0.5">
-                          Fórmula: 70% aproveitamento, 20% velocidade média e 10% metas concluídas. Em empate, entram participação, pontos dos quizzes e nome.
-                        </p>
+                        {user.isAdmin ? (
+                          <>
+                            <p className="font-black">Critério do ranking individual: nota justa.</p>
+                            <p className="text-brand-700 text-xs sm:text-sm mt-0.5">
+                              Fórmula: 70% aproveitamento, 20% velocidade média e 10% metas concluídas. Em empate, entram participação, pontos dos quizzes e nome.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-black">Ranking individual</p>
+                            <p className="text-brand-700 text-xs sm:text-sm mt-0.5">
+                              Para os colaboradores, aparecem apenas nome, setor, aproveitamento e metas completadas.
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -2482,13 +2493,13 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] sm:text-xs text-slate-500">
                               <span>Aproveitamento: <strong>{rankedUser.engagement.aproveitamento}%</strong></span>
                               <span className="text-slate-300">•</span>
-                              <span>Velocidade: <strong>{rankedUser.engagement.hasSpeedData ? rankedUser.engagement.averageResponseTimeLabel : 'sem tempo novo'}</strong></span>
-                              <span className="text-slate-300">•</span>
                               <span>Metas completas: <strong>{rankedUser.engagement.metasConcluidas}</strong>/{rankedUser.engagement.totalMetas}</span>
-                              <span className="text-slate-300">•</span>
-                              <span>Pontos quizzes: <strong>{rankedUser.engagement.totalQuizCoins}</strong>/{rankedUser.engagement.maxQuizCoins}</span>
                               {user.isAdmin && (
                                 <>
+                                  <span className="text-slate-300">•</span>
+                                  <span>Velocidade: <strong>{rankedUser.engagement.hasSpeedData ? rankedUser.engagement.averageResponseTimeLabel : 'sem tempo novo'}</strong></span>
+                                  <span className="text-slate-300">•</span>
+                                  <span>Pontos quizzes: <strong>{rankedUser.engagement.totalQuizCoins}</strong>/{rankedUser.engagement.maxQuizCoins}</span>
                                   <span className="text-slate-300">•</span>
                                   <span>Carteira: <strong>{rankedUser.coins}</strong> moedas</span>
                                 </>
@@ -2497,16 +2508,16 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                             <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-brand-600 rounded-full transition-all"
-                                style={{ width: `${Math.min(100, Math.max(0, rankedUser.engagement.rankingScore))}%` }}
+                                style={{ width: `${Math.min(100, Math.max(0, user.isAdmin ? rankedUser.engagement.rankingScore : rankedUser.engagement.aproveitamento))}%` }}
                               />
                             </div>
                           </div>
                           <div className="shrink-0 flex flex-col items-end gap-0.5">
                             <div className="flex items-center gap-1 font-black text-brand-700 bg-brand-50 px-2 sm:px-3 py-1 rounded-lg border border-brand-100 text-sm sm:text-base">
-                              {rankedUser.engagement.rankingScore}% <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-600" />
+                              {user.isAdmin ? rankedUser.engagement.rankingScore : rankedUser.engagement.aproveitamento}% {user.isAdmin && <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-600" />}
                             </div>
                             <span className="text-[9px] text-slate-400 font-extrabold tracking-wider uppercase">
-                              Nota final
+                              {user.isAdmin ? 'Nota final' : 'Aproveitamento'}
                             </span>
                             {user.isAdmin && (
                               <button
@@ -2570,15 +2581,17 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-xs text-slate-500">
                                 <span><strong>{sector.memberCount}</strong> {sector.memberCount === 1 ? 'membro' : 'membros'}</span>
                                 <span className="text-slate-300">•</span>
-                                <span className={!showTotalWalletCoins ? 'text-brand-750 font-bold' : ''}>
-                                  Nota justa: <strong>{sector.score}%</strong>
-                                </span>
-                                <span className="text-slate-300">•</span>
                                 <span>Aproveitamento: <strong>{sector.aproveitamento}%</strong></span>
                                 <span className="text-slate-300">•</span>
-                                <span>Velocidade: <strong>{sector.speedScore}%</strong></span>
+                                <span>Metas completas: <strong>{sector.totalMetasConcluidas}</strong>/{sector.totalMetas}</span>
                                 {user.isAdmin && (
                                   <>
+                                    <span className="text-slate-300">•</span>
+                                    <span className={!showTotalWalletCoins ? 'text-brand-750 font-bold' : ''}>
+                                      Nota justa: <strong>{sector.score}%</strong>
+                                    </span>
+                                    <span className="text-slate-300">•</span>
+                                    <span>Velocidade: <strong>{sector.speedScore}%</strong></span>
                                     <span className="text-slate-300">•</span>
                                     <span>Pontos Quizzes: <strong>{sector.totalQuizCoins}</strong></span>
                                     <span className="text-slate-300">•</span>
@@ -2597,12 +2610,12 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                                   </>
                                 ) : (
                                   <>
-                                    {sector.score}%
+                                    {user.isAdmin ? sector.score : sector.aproveitamento}%
                                   </>
                                 )}
                               </div>
                               <span className="text-[9px] text-slate-400 font-extrabold tracking-wider uppercase">
-                                {showTotalWalletCoins ? 'Carteira' : 'Nota justa'}
+                                {showTotalWalletCoins ? 'Carteira' : user.isAdmin ? 'Nota justa' : 'Aproveitamento'}
                               </span>
                             </div>
                           </div>
