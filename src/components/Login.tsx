@@ -85,8 +85,8 @@ export function Login({ onLoginSuccess }: LoginProps) {
         }}
       />
 
-      {/* Camada escura para manter a leitura do conteúdo */}
-      <div className="absolute inset-0 bg-black/55" />
+      {/* Camada escura mais leve para a imagem aparecer melhor */}
+      <div className="absolute inset-0 bg-black/25" />
 
       <section className="relative z-10 flex min-h-screen items-center justify-center px-3 py-6 pb-12 sm:px-6 sm:py-8 lg:px-10">
         <motion.div
@@ -95,9 +95,9 @@ export function Login({ onLoginSuccess }: LoginProps) {
           transition={{ duration: 0.55, ease: 'easeOut' }}
           className="w-full max-w-[780px]"
         >
-          <div className="relative overflow-hidden rounded-[1.5rem] border border-amber-300/25 bg-white/[0.08] p-[1px] shadow-[0_32px_120px_rgba(0,0,0,.55)] backdrop-blur-2xl sm:rounded-[2rem]">
-            <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,214,102,.38),transparent_25%,rgba(59,130,246,.20)_78%,transparent)] opacity-70" />
-            <div className="relative rounded-[1.5rem] bg-[linear-gradient(135deg,rgba(8,35,24,.92),rgba(8,24,38,.94))] px-4 py-6 sm:rounded-[2rem] sm:px-10 sm:py-10 lg:px-14 lg:py-12">
+          <div className="relative overflow-hidden rounded-[1.5rem] border border-amber-300/35 bg-white/[0.03] p-[1px] shadow-[0_32px_120px_rgba(0,0,0,.45)] backdrop-blur-sm sm:rounded-[2rem]">
+            <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,214,102,.18),transparent_28%,rgba(59,130,246,.10)_82%,transparent)] opacity-45" />
+            <div className="relative rounded-[1.5rem] bg-[linear-gradient(135deg,rgba(8,35,24,.36),rgba(8,24,38,.42))] px-4 py-6 shadow-[inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-[2px] sm:rounded-[2rem] sm:px-10 sm:py-10 lg:px-14 lg:py-12">
               <div className="mx-auto mb-7 flex w-fit flex-col items-center">
                 <div className="relative mb-4">
                   <div className="absolute inset-0 rounded-full bg-amber-300/30 blur-2xl" />
