@@ -77,37 +77,16 @@ export function Login({ onLoginSuccess }: LoginProps) {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#061018] text-white">
-      {/* Fundo: estádio + campo */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_12%,rgba(248,205,92,0.22),transparent_24%),radial-gradient(circle_at_88%_8%,rgba(74,144,226,0.24),transparent_26%),linear-gradient(115deg,#07140f_0%,#082015_34%,#071827_68%,#050b16_100%)]" />
-      <div className="absolute inset-0 opacity-[0.18] bg-[linear-gradient(to_right,rgba(255,255,255,.2)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,.14)_1px,transparent_1px)] bg-[size:72px_72px] [mask-image:radial-gradient(ellipse_at_center,#000_20%,transparent_72%)]" />
-      <div className="absolute left-[-10%] top-[-10%] h-[32rem] w-[32rem] rounded-full bg-emerald-400/20 blur-[120px]" />
-      <div className="absolute right-[-10%] top-[-12%] h-[34rem] w-[34rem] rounded-full bg-sky-400/20 blur-[130px]" />
-      <div className="absolute bottom-[-20%] left-1/2 h-[34rem] w-[80rem] -translate-x-1/2 rounded-[100%] bg-emerald-500/10 blur-[80px]" />
+      {/* Imagem de fundo do login */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: "url('/assets/images/login-bg.jpg')",
+        }}
+      />
 
-      {/* Luzes do estádio */}
-      <div className="absolute left-0 top-0 h-36 w-[34rem] -translate-x-14 -rotate-12 bg-[radial-gradient(circle,rgba(255,255,255,.85)_0_3px,transparent_4px)] bg-[size:38px_38px] opacity-60 blur-[.2px]" />
-      <div className="absolute right-0 top-0 h-36 w-[34rem] translate-x-14 rotate-12 bg-[radial-gradient(circle,rgba(255,255,255,.82)_0_3px,transparent_4px)] bg-[size:38px_38px] opacity-55 blur-[.2px]" />
-
-      {/* Linhas do campo */}
-      <div className="absolute inset-x-0 bottom-0 h-[34vh] bg-[linear-gradient(to_top,rgba(7,55,32,.82),rgba(7,55,32,.32),transparent)]" />
-      <div className="absolute bottom-[-13rem] left-1/2 h-[28rem] w-[58rem] -translate-x-1/2 rounded-[100%] border border-white/20" />
-      <div className="absolute bottom-[10%] left-0 h-px w-full bg-white/10" />
-
-      {/* Bola geométrica decorativa */}
-      <div className="absolute right-[-7rem] top-[23%] hidden h-[26rem] w-[26rem] rounded-full border border-sky-300/10 lg:block">
-        <div className="absolute inset-10 rounded-full border border-sky-300/10" />
-        <div className="absolute left-20 top-20 h-36 w-36 rotate-12 border border-sky-300/15" />
-        <div className="absolute bottom-24 right-20 h-28 w-28 -rotate-12 border border-sky-300/15" />
-      </div>
-
-      {/* Partículas douradas */}
-      <div className="absolute inset-0 pointer-events-none opacity-70">
-        <span className="absolute left-[12%] top-[28%] h-1.5 w-1.5 rounded-full bg-amber-300/70 blur-[1px]" />
-        <span className="absolute left-[22%] bottom-[22%] h-1 w-1 rounded-full bg-amber-200/80" />
-        <span className="absolute right-[23%] top-[19%] h-1.5 w-1.5 rounded-full bg-amber-300/70 blur-[1px]" />
-        <span className="absolute right-[14%] bottom-[18%] h-2 w-2 rounded-full bg-amber-300/50 blur-[2px]" />
-        <span className="absolute left-[46%] top-[12%] h-1 w-1 rounded-full bg-white/70" />
-      </div>
+      {/* Camada escura para manter a leitura do conteúdo */}
+      <div className="absolute inset-0 bg-black/55" />
 
       <section className="relative z-10 flex min-h-screen items-center justify-center px-3 py-6 pb-12 sm:px-6 sm:py-8 lg:px-10">
         <motion.div
