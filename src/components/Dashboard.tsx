@@ -2563,15 +2563,29 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
               <div className="p-4 md:p-6 flex-1 overflow-y-auto">
                 {rankingTab === 'individual' ? (
                   <div className="space-y-4">
-                    <div className="flex items-start gap-3 bg-brand-50 border border-brand-100 rounded-xl p-3 sm:p-4 text-sm text-brand-900">
-                      <Zap className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-black">Critério oficial do ranking individual</p>
-                        <p className="text-brand-700 text-xs sm:text-sm mt-0.5">
-                          Ordem: 1º pontuação oficial dos quizzes, 2º total de pontos, 3º metas concluídas, 4º metas respondidas, 5º acertos, 6º menor tempo total gasto nas metas quando os dois têm tempo registrado, 7º nome e CPF. Como o cronômetro é regressivo de 20s, o sistema converte para tempo gasto: respondeu com 14s restantes = gastou 6s; tempo esgotado = 20s. Carteira e figurinhas não alteram a colocação.
+                    <details className="group bg-brand-50 border border-brand-100 rounded-xl text-sm text-brand-900 overflow-hidden">
+                      <summary className="flex items-center gap-3 p-3 sm:p-4 cursor-pointer select-none list-none">
+                        <Zap className="w-5 h-5 text-brand-600 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-black">Ver critérios do ranking individual</p>
+                          <p className="text-brand-700 text-xs sm:text-sm mt-0.5">Clique aqui para entender como a classificação é calculada.</p>
+                        </div>
+                        <span className="text-xs font-black text-brand-700 bg-white/80 border border-brand-100 rounded-full px-3 py-1 group-open:hidden">
+                          Abrir
+                        </span>
+                        <span className="hidden text-xs font-black text-brand-700 bg-white/80 border border-brand-100 rounded-full px-3 py-1 group-open:inline-flex">
+                          Fechar
+                        </span>
+                      </summary>
+                      <div className="border-t border-brand-100 px-3 pb-3 sm:px-4 sm:pb-4 text-brand-700 text-xs sm:text-sm leading-relaxed">
+                        <p>
+                          Ordem: 1º pontuação oficial dos quizzes, 2º total de pontos, 3º metas concluídas, 4º metas respondidas, 5º acertos, 6º menor tempo total gasto nas metas quando os dois têm tempo registrado, 7º nome e CPF.
+                        </p>
+                        <p className="mt-2">
+                          Como o cronômetro é regressivo de 20s, o sistema converte para tempo gasto: respondeu com 14s restantes = gastou 6s; tempo esgotado = 20s. Carteira e figurinhas não alteram a colocação.
                         </p>
                       </div>
-                    </div>
+                    </details>
 
                     <div className="flex flex-col gap-3">
                       {visibleIndividualRanking.map((rankedUser, index) => (
