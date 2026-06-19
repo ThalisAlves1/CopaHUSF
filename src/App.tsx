@@ -1,27 +1,164 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';
 import { User, MetaProgress } from './types';
 import { openPackage } from './lib/store';
 import { appendActivityLog, createActivityEntry } from './lib/activity';
 import { getStoredUsers, simulateLogin } from './lib/auth';
-import { RefreshCw } from 'lucide-react';
+import { LogOut, RefreshCw } from 'lucide-react';
 import { dbSaveSingleUser } from './lib/supabase';
+
+
+const normalizeLoggedUser = (rawUser: User): User => {
+  const cleanName = String(rawUser?.name || '').replace(/\s+/g, ' ').trim();
+  const cleanSector = String(rawUser?.sector || '').replace(/\s+/g, ' ').trim();
+  const numericCoins = Number(rawUser?.coins ?? 0);
+
+  return {
+    ...rawUser,
+    cpf: String(rawUser?.cpf || ''),
+    name: cleanName || 'Colaborador',
+    sector: cleanSector || 'Outro Setor',
+    coins: Number.isFinite(numericCoins) ? numericCoins : 0,
+    stickers: Array.isArray(rawUser?.stickers) ? rawUser.stickers : [],
+    progress: rawUser?.progress && typeof rawUser.progress === 'object' ? rawUser.progress : {},
+    activityLog: Array.isArray(rawUser?.activityLog) ? rawUser.activityLog : rawUser?.activityLog,
+    isAdmin: !!rawUser?.isAdmin,
+  };
+};
+
+const AppLoadingScreen = ({ title = 'Copa das Metas', message = 'Carregando...' }: { title?: string; message?: string }) => (
+  <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center select-none font-sans">
+    <div className="relative flex flex-col items-center">
+      <div className="w-14 h-14 rounded-full border-4 border-slate-100 border-t-brand-600 animate-spin mb-6 shadow-inner tracking-widest text-[#14b8a6]"></div>
+      <div className="space-y-1 animate-pulse">
+        <h3 className="font-extrabold text-slate-800 text-lg tracking-tight font-[Space_Grotesk]">
+          {title}
+        </h3>
+        <p className="text-[12px] font-semibold text-slate-400">
+          {message}
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
+interface AppErrorBoundaryProps {
+  children: React.ReactNode;
+  resetKey: string;
+  onLogout?: () => void;
+}
+
+interface AppErrorBoundaryState {
+  hasError: boolean;
+  errorMessage: string;
+}
+
+class AppErrorBoundary extends (React as any).Component {
+  state: AppErrorBoundaryState = {
+    hasError: false,
+    errorMessage: '',
+  };
+
+  static getDerivedStateFromError(error: unknown): AppErrorBoundaryState {
+    const message = error instanceof Error ? error.message : String(error || 'Erro inesperado');
+    return { hasError: true, errorMessage: message };
+  }
+
+  componentDidCatch(error: unknown, info: unknown) {
+    console.error('Erro capturado na tela principal da Copa HUSF:', error, info);
+  }
+
+  componentDidUpdate(prevProps: AppErrorBoundaryProps) {
+    const props = (this as any).props as AppErrorBoundaryProps;
+    const state = (this as any).state as AppErrorBoundaryState;
+
+    if (prevProps.resetKey !== props.resetKey && state.hasError) {
+      (this as any).setState({ hasError: false, errorMessage: '' });
+    }
+  }
+
+  render() {
+    const props = (this as any).props as AppErrorBoundaryProps;
+    const state = (this as any).state as AppErrorBoundaryState;
+
+    if (!state.hasError) return props.children;
+
+    return (
+      <main className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-5">
+        <section className="w-full max-w-lg rounded-[2rem] border border-white/10 bg-white/[0.06] p-6 text-center shadow-2xl backdrop-blur-xl">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-400/15 border border-amber-300/30 text-amber-200">
+            <RefreshCw className="h-8 w-8" />
+          </div>
+          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-amber-200/80">Recuperação automática</p>
+          <h1 className="mt-3 text-2xl font-black uppercase tracking-tight">A tela demorou para abrir</h1>
+          <p className="mt-4 text-sm leading-relaxed text-slate-300">
+            O app encontrou uma falha temporária ao abrir o painel. Toque em tentar novamente para carregar sem precisar ficar olhando uma tela branca.
+          </p>
+          {state.errorMessage && (
+            <p className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-3 text-left text-[11px] font-semibold text-slate-400 break-words">
+              Detalhe técnico: {state.errorMessage}
+            </p>
+          )}
+          <div className="mt-6 flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() => (this as any).setState({ hasError: false, errorMessage: '' })}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black uppercase tracking-wide text-slate-900 shadow-lg transition-all hover:-translate-y-0.5 active:translate-y-0"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Tentar abrir novamente
+            </button>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-black uppercase tracking-wide text-white transition-all hover:bg-white/10"
+            >
+              Atualizar app
+            </button>
+            {props.onLogout && (
+              <button
+                type="button"
+                onClick={props.onLogout}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-black uppercase tracking-wide text-white transition-all hover:bg-white/10"
+              >
+                <LogOut className="h-4 w-4" />
+                Sair e voltar ao login
+              </button>
+            )}
+          </div>
+        </section>
+      </main>
+    );
+  }
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
+  const [isOpeningDashboard, setIsOpeningDashboard] = useState(false);
+  const loginTransitionTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (loginTransitionTimer.current !== null) {
+        window.clearTimeout(loginTransitionTimer.current);
+      }
+    };
+  }, []);
 
   const saveUserLocallyOnly = (updatedUser: User) => {
+    const safeUpdatedUser = normalizeLoggedUser(updatedUser);
+
     try {
       const users = getStoredUsers() || [];
-      const cleanUserCpf = updatedUser.cpf.replace(/\D/g, '');
+      const cleanUserCpf = safeUpdatedUser.cpf.replace(/\D/g, '');
       const updatedUsers = users.map(u => {
         if (!u || !u.cpf || typeof u.cpf !== 'string') return u;
-        return u.cpf.replace(/\D/g, '') === cleanUserCpf ? { ...updatedUser, cpf: u.cpf } : u;
+        return u.cpf.replace(/\D/g, '') === cleanUserCpf ? { ...safeUpdatedUser, cpf: u.cpf } : u;
       });
       const hasUser = updatedUsers.some(u => u && u.cpf && typeof u.cpf === 'string' && u.cpf.replace(/\D/g, '') === cleanUserCpf);
-      if (!hasUser) updatedUsers.push(updatedUser);
+      if (!hasUser) updatedUsers.push(safeUpdatedUser);
       localStorage.setItem('husf_users', JSON.stringify(updatedUsers));
     } catch (err) {
       console.warn('Não foi possível salvar cache local do usuário:', err);
@@ -29,8 +166,9 @@ export default function App() {
   };
 
   const persistLoggedUser = (nextUser: User) => {
+    const safeNextUser = normalizeLoggedUser(nextUser);
     const versionedUser: User = {
-      ...nextUser,
+      ...safeNextUser,
       updatedAt: new Date().toISOString()
     };
 
@@ -52,20 +190,21 @@ export default function App() {
   // Load session from localStorage on startup
   useEffect(() => {
     async function initSession() {
-      const storedCpf = localStorage.getItem('husf_session_cpf');
-      if (storedCpf) {
-        try {
+      try {
+        const storedCpf = localStorage.getItem('husf_session_cpf');
+        if (storedCpf) {
           const loggedUser = await simulateLogin(storedCpf);
           if (loggedUser) {
-            setUser(loggedUser);
+            setUser(normalizeLoggedUser(loggedUser));
           } else {
             localStorage.removeItem('husf_session_cpf');
           }
-        } catch (err) {
-          console.error("Erro ao recuperar sessão:", err);
         }
+      } catch (err) {
+        console.error("Erro ao recuperar sessão:", err);
+      } finally {
+        setLoadingSession(false);
       }
-      setLoadingSession(false);
     }
     initSession();
   }, []);
@@ -145,11 +284,29 @@ export default function App() {
   }, [pullY, isRefreshing]);
 
   const handleLoginSuccess = (userData: User) => {
-    localStorage.setItem('husf_session_cpf', userData.cpf);
-    setUser(userData);
+    const safeUser = normalizeLoggedUser(userData);
+    localStorage.setItem('husf_session_cpf', safeUser.cpf);
+    saveUserLocallyOnly(safeUser);
+
+    // Evita a sensação de tela branca em celulares lentos: primeiro mostra uma tela
+    // de preparação, depois monta o Dashboard já com os dados normalizados.
+    setIsOpeningDashboard(true);
+    if (loginTransitionTimer.current !== null) {
+      window.clearTimeout(loginTransitionTimer.current);
+    }
+    loginTransitionTimer.current = window.setTimeout(() => {
+      setUser(safeUser);
+      setIsOpeningDashboard(false);
+      loginTransitionTimer.current = null;
+    }, 150);
   };
 
   const handleLogout = () => {
+    if (loginTransitionTimer.current !== null) {
+      window.clearTimeout(loginTransitionTimer.current);
+      loginTransitionTimer.current = null;
+    }
+    setIsOpeningDashboard(false);
     localStorage.removeItem('husf_session_cpf');
     setUser(null);
   };
@@ -232,25 +389,17 @@ export default function App() {
   };
 
   if (loadingSession) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center select-none font-sans">
-        <div className="relative flex flex-col items-center">
-          <div className="w-14 h-14 rounded-full border-4 border-slate-100 border-t-brand-600 animate-spin mb-6 shadow-inner tracking-widest text-[#14b8a6]"></div>
-          <div className="space-y-1 animate-pulse">
-            <h3 className="font-extrabold text-slate-800 text-lg tracking-tight font-[Space_Grotesk]">
-              Copa das Metas
-            </h3>
-            <p className="text-[12px] font-semibold text-slate-400">
-              Carregando sessão de login...
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    return <AppLoadingScreen message="Carregando sessão de login..." />;
+  }
+
+  if (isOpeningDashboard) {
+    return <AppLoadingScreen title="Copa HUSF" message="Preparando painel do colaborador..." />;
   }
 
   return (
-    <>
+    <AppErrorBoundary resetKey={user ? normalizeLoggedUser(user).cpf : 'login'} onLogout={user ? handleLogout : undefined}>
+      <React.Suspense fallback={<AppLoadingScreen title="Copa HUSF" message="Carregando módulos do app..." />}>
+        <>
       {/* Pull to Refresh Indicator */}
       {(pullY > 0 || isRefreshing) && (
         <div 
@@ -296,6 +445,9 @@ export default function App() {
       <footer className="fixed bottom-1 left-0 right-0 z-[80] px-3 text-center text-[9px] font-medium text-white/35">
   Criado pela Diretoria de Ensino e Pesquisa / NSP-Qualidade
 </footer>
-    </>
+        </>
+      </React.Suspense>
+    </AppErrorBoundary>
   );
 }
+
