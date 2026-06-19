@@ -67,6 +67,11 @@ const formatAverageSeconds = (milliseconds?: number | null) => {
   return `${roundOneDecimal(milliseconds / 1000)}s`;
 };
 
+const formatDurationSeconds = (milliseconds?: number | null) => {
+  if (!milliseconds || !Number.isFinite(milliseconds) || milliseconds <= 0) return '--';
+  return `${roundOneDecimal(milliseconds / 1000)}s`;
+};
+
 const normalizeTextKey = (value: string | null | undefined) => String(value || '')
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
@@ -126,6 +131,30 @@ const getUniqueMonitoringCollaborators = (users: User[]) => {
   });
 
   return Array.from(byName.values()).sort((a, b) => a.name.localeCompare(b.name));
+};
+
+const getRankingUserKey = (user: User) => {
+  const cpfKey = normalizeCpf(user.cpf);
+  if (cpfKey) return `cpf:${cpfKey}`;
+
+  const nameKey = normalizeTextKey(user.name);
+  const sectorKey = normalizeSectorKey(user.sector);
+  return `sem-cpf:${nameKey}|${sectorKey}`;
+};
+
+const getUniqueRankingCollaborators = (users: User[]) => {
+  const unique = new Map<string, User>();
+
+  users
+    .filter(u => !u.isAdmin)
+    .forEach((candidate) => {
+      const cleanedCandidate = { ...candidate, sector: getMonitoringSectorLabel(candidate) };
+      const key = getRankingUserKey(cleanedCandidate);
+      const current = unique.get(key);
+      unique.set(key, current ? chooseBestMonitoringUser(current, cleanedCandidate) : cleanedCandidate);
+    });
+
+  return Array.from(unique.values());
 };
 
 const LazyPanelFallback = () => (
@@ -1003,22 +1032,49 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     const totalQuestionsAnswered = metaIds.reduce((sum, metaId) => sum + (u.progress?.[metaId]?.totalQuestionsAnswered || 0), 0);
     const totalCorrectAnswers = metaIds.reduce((sum, metaId) => sum + (u.progress?.[metaId]?.totalCorrectAnswers || 0), 0);
     const totalResponseTimeMs = metaIds.reduce((sum, metaId) => sum + (u.progress?.[metaId]?.totalResponseTimeMs || 0), 0);
+    const officialTimeMetrics = metaIds.reduce((acc, metaId) => {
+      const progress = u.progress?.[metaId];
+      if (!progress) return acc;
+
+      // O cronômetro da tela é regressivo, de 20 para 0.
+      // Para o ranking, o app sempre converte para tempo gasto:
+      // tempo gasto = 20s - tempo restante. Se esgotar, conta 20s.
+      // Exemplo: respondeu com 14s restantes => gastou 6s. Respondeu com 3s restantes => gastou 17s.
+      const officialResponseTimeMs = typeof progress.lastAttemptResponseTimeMs === 'number' && progress.lastAttemptResponseTimeMs > 0
+        ? progress.lastAttemptResponseTimeMs
+        : (typeof progress.totalResponseTimeMs === 'number' && progress.totalResponseTimeMs > 0 ? progress.totalResponseTimeMs : 0);
+      const officialQuestionsAnswered = typeof progress.lastAttemptQuestions === 'number' && progress.lastAttemptQuestions > 0
+        ? progress.lastAttemptQuestions
+        : (typeof progress.totalQuestionsAnswered === 'number' && progress.totalQuestionsAnswered > 0 ? progress.totalQuestionsAnswered : 0);
+
+      if (officialResponseTimeMs > 0 && officialQuestionsAnswered > 0) {
+        acc.totalOfficialResponseTimeMs += officialResponseTimeMs;
+        acc.totalOfficialQuestionsAnswered += officialQuestionsAnswered;
+        acc.metasComTempo += 1;
+      }
+
+      return acc;
+    }, {
+      totalOfficialResponseTimeMs: 0,
+      totalOfficialQuestionsAnswered: 0,
+      metasComTempo: 0
+    });
     const averageResponseTimeMs = totalQuestionsAnswered > 0 ? totalResponseTimeMs / totalQuestionsAnswered : null;
-    const hasSpeedData = !!averageResponseTimeMs && totalQuestionsAnswered > 0;
+    const officialAverageResponseTimeMs = officialTimeMetrics.totalOfficialQuestionsAnswered > 0
+      ? officialTimeMetrics.totalOfficialResponseTimeMs / officialTimeMetrics.totalOfficialQuestionsAnswered
+      : null;
+    const hasSpeedData = !!officialAverageResponseTimeMs && officialTimeMetrics.totalOfficialQuestionsAnswered > 0;
     const speedScore = hasSpeedData
-      ? roundOneDecimal(clampNumber(((RANKING_SPEED_LIMIT_MS - averageResponseTimeMs) / RANKING_SPEED_LIMIT_MS) * 100))
+      ? roundOneDecimal(clampNumber(((RANKING_SPEED_LIMIT_MS - officialAverageResponseTimeMs) / RANKING_SPEED_LIMIT_MS) * 100))
       : RANKING_SPEED_NEUTRAL_SCORE;
     const completionScore = totalMetas > 0 ? roundOneDecimal((metasConcluidas / totalMetas) * 100) : 0;
     const participationScore = totalMetas > 0 ? roundOneDecimal((metasParticipadas / totalMetas) * 100) : 0;
+    const accuracyScore = totalQuestionsAnswered > 0 ? roundOneDecimal((totalCorrectAnswers / totalQuestionsAnswered) * 100) : 0;
 
-    // Fórmula do ranking justo:
-    // 70% aproveitamento + 20% velocidade + 10% metas concluídas.
-    // Participação entra como desempate para não premiar quem fez só uma meta.
-    const rankingScore = roundOneDecimal(
-      aproveitamento * 0.70 +
-      speedScore * 0.20 +
-      completionScore * 0.10
-    );
+    // Ranking oficial e auditável:
+    // A ordem principal é o aproveitamento real nos quizzes: total de pontos conquistados / 900 pontos possíveis.
+    // Velocidade, acertos, participação e nome entram apenas como desempate para não alterar a pontuação principal.
+    const rankingScore = aproveitamento;
 
     return {
       totalQuizCoins,
@@ -1030,8 +1086,16 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       metaBreakdown,
       totalQuestionsAnswered,
       totalCorrectAnswers,
-      averageResponseTimeMs,
-      averageResponseTimeLabel: formatAverageSeconds(averageResponseTimeMs),
+      totalResponseTimeMs,
+      totalOfficialResponseTimeMs: officialTimeMetrics.totalOfficialResponseTimeMs,
+      totalOfficialQuestionsAnswered: officialTimeMetrics.totalOfficialQuestionsAnswered,
+      metasComTempo: officialTimeMetrics.metasComTempo,
+      accuracyScore,
+      averageResponseTimeMs: officialAverageResponseTimeMs || averageResponseTimeMs,
+      averageResponseTimeLabel: formatAverageSeconds(officialAverageResponseTimeMs || averageResponseTimeMs),
+      officialAverageResponseTimeMs,
+      officialAverageResponseTimeLabel: formatAverageSeconds(officialAverageResponseTimeMs),
+      officialTotalResponseTimeLabel: formatDurationSeconds(officialTimeMetrics.totalOfficialResponseTimeMs),
       hasSpeedData,
       speedScore,
       completionScore,
@@ -1040,31 +1104,39 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     };
   };
 
+  const getRankingSourceUsers = () => {
+    const currentCpf = normalizeCpf(user.cpf);
+    const mergedUsers = usersList.some(u => normalizeCpf(u.cpf) === currentCpf)
+      ? usersList.map(u => (normalizeCpf(u.cpf) === currentCpf ? user : u))
+      : [...usersList, user];
+
+    return getUniqueRankingCollaborators(mergedUsers);
+  };
+
+  const compareRankedUsers = <T extends User & { engagement: ReturnType<typeof calculateUserEngagement> }>(a: T, b: T) => {
+    if (b.engagement.rankingScore !== a.engagement.rankingScore) return b.engagement.rankingScore - a.engagement.rankingScore;
+    if (b.engagement.totalQuizCoins !== a.engagement.totalQuizCoins) return b.engagement.totalQuizCoins - a.engagement.totalQuizCoins;
+    if (b.engagement.metasConcluidas !== a.engagement.metasConcluidas) return b.engagement.metasConcluidas - a.engagement.metasConcluidas;
+    if (b.engagement.metasParticipadas !== a.engagement.metasParticipadas) return b.engagement.metasParticipadas - a.engagement.metasParticipadas;
+    if (b.engagement.totalCorrectAnswers !== a.engagement.totalCorrectAnswers) return b.engagement.totalCorrectAnswers - a.engagement.totalCorrectAnswers;
+
+    if (a.engagement.hasSpeedData && b.engagement.hasSpeedData && a.engagement.totalOfficialResponseTimeMs !== b.engagement.totalOfficialResponseTimeMs) {
+      return a.engagement.totalOfficialResponseTimeMs - b.engagement.totalOfficialResponseTimeMs;
+    }
+
+    const nameCompare = a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+    if (nameCompare !== 0) return nameCompare;
+
+    return normalizeCpf(a.cpf).localeCompare(normalizeCpf(b.cpf));
+  };
+
   const computeIndividualRanking = () => {
-    return usersList
-      .filter(u => !u.isAdmin)
+    return getRankingSourceUsers()
       .map(u => ({
         ...u,
         engagement: calculateUserEngagement(u)
       }))
-      .sort((a, b) => {
-        if (b.engagement.rankingScore !== a.engagement.rankingScore) {
-          return b.engagement.rankingScore - a.engagement.rankingScore;
-        }
-        if (b.engagement.aproveitamento !== a.engagement.aproveitamento) {
-          return b.engagement.aproveitamento - a.engagement.aproveitamento;
-        }
-        if (b.engagement.speedScore !== a.engagement.speedScore) {
-          return b.engagement.speedScore - a.engagement.speedScore;
-        }
-        if (b.engagement.participationScore !== a.engagement.participationScore) {
-          return b.engagement.participationScore - a.engagement.participationScore;
-        }
-        if (b.engagement.totalQuizCoins !== a.engagement.totalQuizCoins) {
-          return b.engagement.totalQuizCoins - a.engagement.totalQuizCoins;
-        }
-        return a.name.localeCompare(b.name);
-      });
+      .sort(compareRankedUsers);
   };
 
   const computeSectorRanking = () => {
@@ -1076,13 +1148,18 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       totalAproveitamento: number;
       totalSpeedScore: number;
       totalMetasConcluidas: number;
+      totalMetasParticipadas: number;
       totalMetas: number;
+      totalCorrectAnswers: number;
+      totalQuestionsAnswered: number;
+      totalResponseTimeMs: number;
+      totalOfficialResponseTimeMs: number;
+      totalOfficialQuestionsAnswered: number;
       speedDataCount: number;
     }> = {};
 
-    usersList.forEach(u => {
-      if (u.isAdmin) return; // Excluir administradores da pontuação de setores
-      const sectorName = u.sector || 'Outro Setor';
+    getRankingSourceUsers().forEach(u => {
+      const sectorName = getMonitoringSectorLabel(u);
       if (!sectorMap[sectorName]) {
         sectorMap[sectorName] = {
           totalCoins: 0,
@@ -1092,7 +1169,13 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
           totalAproveitamento: 0,
           totalSpeedScore: 0,
           totalMetasConcluidas: 0,
+          totalMetasParticipadas: 0,
           totalMetas: 0,
+          totalCorrectAnswers: 0,
+          totalQuestionsAnswered: 0,
+          totalResponseTimeMs: 0,
+          totalOfficialResponseTimeMs: 0,
+          totalOfficialQuestionsAnswered: 0,
           speedDataCount: 0
         };
       }
@@ -1105,30 +1188,60 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       sectorMap[sectorName].totalAproveitamento += engagement.aproveitamento;
       sectorMap[sectorName].totalSpeedScore += engagement.speedScore;
       sectorMap[sectorName].totalMetasConcluidas += engagement.metasConcluidas;
+      sectorMap[sectorName].totalMetasParticipadas += engagement.metasParticipadas;
       sectorMap[sectorName].totalMetas += engagement.totalMetas;
+      sectorMap[sectorName].totalCorrectAnswers += engagement.totalCorrectAnswers;
+      sectorMap[sectorName].totalQuestionsAnswered += engagement.totalQuestionsAnswered;
+      sectorMap[sectorName].totalResponseTimeMs += engagement.totalResponseTimeMs;
+      sectorMap[sectorName].totalOfficialResponseTimeMs += engagement.totalOfficialResponseTimeMs;
+      sectorMap[sectorName].totalOfficialQuestionsAnswered += engagement.totalOfficialQuestionsAnswered;
       if (engagement.hasSpeedData) sectorMap[sectorName].speedDataCount += 1;
     });
 
     return Object.entries(sectorMap)
       .map(([name, data]) => {
-        const score = data.memberCount > 0 ? roundOneDecimal(data.totalRankingScore / data.memberCount) : 0;
-        const aproveitamento = data.memberCount > 0 ? roundOneDecimal(data.totalAproveitamento / data.memberCount) : 0;
+        const maxSectorQuizCoins = data.totalMetas * 150;
+        const score = maxSectorQuizCoins > 0 ? roundOneDecimal((data.totalQuizCoins / maxSectorQuizCoins) * 100) : 0;
+        const aproveitamento = score;
         const speedScore = data.memberCount > 0 ? roundOneDecimal(data.totalSpeedScore / data.memberCount) : RANKING_SPEED_NEUTRAL_SCORE;
         const completionScore = data.totalMetas > 0 ? roundOneDecimal((data.totalMetasConcluidas / data.totalMetas) * 100) : 0;
-        return { name, ...data, score, aproveitamento, speedScore, completionScore };
+        const participationScore = data.totalMetas > 0 ? roundOneDecimal((data.totalMetasParticipadas / data.totalMetas) * 100) : 0;
+        const accuracyScore = data.totalQuestionsAnswered > 0 ? roundOneDecimal((data.totalCorrectAnswers / data.totalQuestionsAnswered) * 100) : 0;
+        const averageResponseTimeMs = data.totalOfficialQuestionsAnswered > 0
+          ? data.totalOfficialResponseTimeMs / data.totalOfficialQuestionsAnswered
+          : (data.totalQuestionsAnswered > 0 ? data.totalResponseTimeMs / data.totalQuestionsAnswered : null);
+        return {
+          name,
+          ...data,
+          score,
+          aproveitamento,
+          speedScore,
+          completionScore,
+          participationScore,
+          accuracyScore,
+          averageResponseTimeMs,
+          averageResponseTimeLabel: formatAverageSeconds(averageResponseTimeMs),
+          officialTotalResponseTimeLabel: formatDurationSeconds(data.totalOfficialResponseTimeMs)
+        };
       })
       .sort((a, b) => {
         const activeMetric = user.isAdmin ? sectorRankingMetric : 'average';
         if (activeMetric === 'average') {
           if (b.score !== a.score) return b.score - a.score;
-          if (b.aproveitamento !== a.aproveitamento) return b.aproveitamento - a.aproveitamento;
-          return b.speedScore - a.speedScore;
+          if (b.totalQuizCoins !== a.totalQuizCoins) return b.totalQuizCoins - a.totalQuizCoins;
+          if (b.completionScore !== a.completionScore) return b.completionScore - a.completionScore;
+          if (b.participationScore !== a.participationScore) return b.participationScore - a.participationScore;
+          if (b.accuracyScore !== a.accuracyScore) return b.accuracyScore - a.accuracyScore;
+          if (a.totalOfficialResponseTimeMs && b.totalOfficialResponseTimeMs && a.totalOfficialResponseTimeMs !== b.totalOfficialResponseTimeMs) return a.totalOfficialResponseTimeMs - b.totalOfficialResponseTimeMs;
+          return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
         }
-        return b.totalCoins - a.totalCoins;
+        if (b.totalCoins !== a.totalCoins) return b.totalCoins - a.totalCoins;
+        if (b.totalQuizCoins !== a.totalQuizCoins) return b.totalQuizCoins - a.totalQuizCoins;
+        return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
       });
   };
-  const individualRankingList = useMemo(() => computeIndividualRanking(), [usersList, releasedMetas]);
-  const sectorRankingList = useMemo(() => computeSectorRanking(), [usersList, sectorRankingMetric, user.isAdmin, releasedMetas]);
+  const individualRankingList = useMemo(() => computeIndividualRanking(), [usersList, user]);
+  const sectorRankingList = useMemo(() => computeSectorRanking(), [usersList, sectorRankingMetric, user.isAdmin, user]);
   const visibleIndividualRanking = useMemo(() => individualRankingList.slice(0, RANKING_DISPLAY_LIMIT), [individualRankingList]);
   const visibleSectorRanking = useMemo(() => sectorRankingList.slice(0, RANKING_DISPLAY_LIMIT), [sectorRankingList]);
   const adminViewedUser = useMemo(() => {
@@ -1616,34 +1729,11 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   const currentUserActivity = useMemo(() => getActivityLog(user).slice(0, 10), [user]);
 
   const collaboratorHomeSummary = useMemo(() => {
-    const normalizedUsers = usersList.some(u => u.cpf === user.cpf)
-      ? usersList.map(u => (u.cpf === user.cpf ? user : u))
-      : [...usersList, user];
-
-    const rankedUsers = normalizedUsers
-      .filter(u => !u.isAdmin)
-      .map(u => ({
-        ...u,
-        engagement: calculateUserEngagement(u)
-      }))
-      .sort((a, b) => {
-        if (b.engagement.rankingScore !== a.engagement.rankingScore) {
-          return b.engagement.rankingScore - a.engagement.rankingScore;
-        }
-        if (b.engagement.aproveitamento !== a.engagement.aproveitamento) {
-          return b.engagement.aproveitamento - a.engagement.aproveitamento;
-        }
-        if (b.engagement.speedScore !== a.engagement.speedScore) {
-          return b.engagement.speedScore - a.engagement.speedScore;
-        }
-        if (b.engagement.totalQuizCoins !== a.engagement.totalQuizCoins) {
-          return b.engagement.totalQuizCoins - a.engagement.totalQuizCoins;
-        }
-        return a.name.localeCompare(b.name);
-      });
+    const rankedUsers = individualRankingList;
 
     const currentEngagement = calculateUserEngagement(user);
-    const rankIndex = user.isAdmin ? -1 : rankedUsers.findIndex(u => u.cpf === user.cpf);
+    const currentCpf = normalizeCpf(user.cpf);
+    const rankIndex = user.isAdmin ? -1 : rankedUsers.findIndex(u => normalizeCpf(u.cpf) === currentCpf);
     const nextRanked = rankIndex > 0 ? rankedUsers[rankIndex - 1] : undefined;
     const nextIncompleteReleasedMeta = METAS.find(meta =>
       releasedMetas.includes(meta.id) && !isMetaCompleted(user.progress?.[meta.id])
@@ -1656,7 +1746,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       rankPosition: rankIndex >= 0 ? rankIndex + 1 : null,
       totalRanked: rankedUsers.length,
       nextRankedName: nextRanked?.name,
-      pointsToNextRank: nextRanked ? Math.max(0.1, roundOneDecimal(nextRanked.engagement.rankingScore - currentEngagement.rankingScore + 0.1)) : 0,
+      pointsToNextRank: nextRanked ? Math.max(1, nextRanked.engagement.totalQuizCoins - currentEngagement.totalQuizCoins + 1) : 0,
       engagementPercent: currentEngagement.rankingScore,
       totalQuizCoins: currentEngagement.totalQuizCoins,
       maxQuizCoins: currentEngagement.maxQuizCoins,
@@ -1671,7 +1761,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       nextMetaCoins: nextMeta ? (user.progress?.[nextMeta.id]?.totalCoinsEarned || 0) : undefined,
       hasReleasedPendingMeta: !!nextIncompleteReleasedMeta
     };
-  }, [usersList, user, allStickersCatalog.length, releasedMetas, currentUserActivity]);
+  }, [individualRankingList, user, allStickersCatalog.length, releasedMetas, currentUserActivity]);
 
   const adminActivityLog = useMemo(() => {
     const normalizedUsers = usersList.some(u => u.cpf === user.cpf)
@@ -1800,7 +1890,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   }, [monitoringCollaborators, adminQuizSectorFilter, adminQuizPage]);
 
   const adminEngagementReport = useMemo(() => {
-    const collaborators = usersList.filter(u => !u.isAdmin);
+    const collaborators = getRankingSourceUsers();
     const totalCollaborators = collaborators.length;
     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
@@ -1881,7 +1971,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       attentionMeta: sortedMetasByEngagement[sortedMetasByEngagement.length - 1],
       riskCollaborators
     };
-  }, [usersList, individualRankingList]);
+  }, [usersList, user, individualRankingList]);
 
   if (isAppClosedForUser) {
     return <AppClosedScreen user={user} onLogout={handleLogoutAndLeaveQueue} releasedMetasReady={releasedMetasReady} />;
@@ -2476,21 +2566,10 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                     <div className="flex items-start gap-3 bg-brand-50 border border-brand-100 rounded-xl p-3 sm:p-4 text-sm text-brand-900">
                       <Zap className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
                       <div>
-                        {user.isAdmin ? (
-                          <>
-                            <p className="font-black">Critério do ranking individual: nota justa.</p>
-                            <p className="text-brand-700 text-xs sm:text-sm mt-0.5">
-                              Fórmula: 70% aproveitamento, 20% velocidade média e 10% metas concluídas. Em empate, entram participação, pontos dos quizzes e nome.
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="font-black">Ranking individual</p>
-                            <p className="text-brand-700 text-xs sm:text-sm mt-0.5">
-                              Para os colaboradores, aparecem nome, setor, aproveitamento e a quantidade feita considerando todas as 6 metas.
-                            </p>
-                          </>
-                        )}
+                        <p className="font-black">Critério oficial do ranking individual</p>
+                        <p className="text-brand-700 text-xs sm:text-sm mt-0.5">
+                          Ordem: 1º pontuação oficial dos quizzes, 2º total de pontos, 3º metas concluídas, 4º metas respondidas, 5º acertos, 6º menor tempo total gasto nas metas quando os dois têm tempo registrado, 7º nome e CPF. Como o cronômetro é regressivo de 20s, o sistema converte para tempo gasto: respondeu com 14s restantes = gastou 6s; tempo esgotado = 20s. Carteira e figurinhas não alteram a colocação.
+                        </p>
                       </div>
                     </div>
 
@@ -2507,19 +2586,21 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                             <h3 className="font-bold text-slate-800 safe-text text-sm sm:text-base">{rankedUser.name}</h3>
                             <p className="text-xs sm:text-sm text-slate-500 safe-text">{rankedUser.sector}</p>
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] sm:text-xs text-slate-500">
-                              <span>Aproveitamento: <strong>{rankedUser.engagement.aproveitamento}%</strong></span>
+                              <span>Pontos: <strong>{rankedUser.engagement.totalQuizCoins}</strong>/{rankedUser.engagement.maxQuizCoins}</span>
                               <span className="text-slate-300">•</span>
-                              <span>Metas feitas: <strong>{rankedUser.engagement.metasConcluidas}</strong>/{rankedUser.engagement.totalMetas}</span>
-                              {user.isAdmin && (
-                                <>
-                                  <span className="text-slate-300">•</span>
-                                  <span>Velocidade: <strong>{rankedUser.engagement.hasSpeedData ? rankedUser.engagement.averageResponseTimeLabel : 'sem tempo novo'}</strong></span>
-                                  <span className="text-slate-300">•</span>
-                                  <span>Pontos quizzes: <strong>{rankedUser.engagement.totalQuizCoins}</strong>/{rankedUser.engagement.maxQuizCoins}</span>
-                                  <span className="text-slate-300">•</span>
-                                  <span>Carteira: <strong>{rankedUser.coins}</strong> moedas</span>
-                                </>
-                              )}
+                              <span>Pontuação oficial: <strong>{rankedUser.engagement.rankingScore}%</strong></span>
+                              <span className="text-slate-300">•</span>
+                              <span>Metas concluídas: <strong>{rankedUser.engagement.metasConcluidas}</strong>/{rankedUser.engagement.totalMetas}</span>
+                              <span className="text-slate-300">•</span>
+                              <span>Metas respondidas: <strong>{rankedUser.engagement.metasParticipadas}</strong>/{rankedUser.engagement.totalMetas}</span>
+                              <span className="text-slate-300">•</span>
+                              <span>Acertos registrados: <strong>{rankedUser.engagement.totalCorrectAnswers}</strong>/{rankedUser.engagement.totalQuestionsAnswered || 0}</span>
+                              <span className="text-slate-300">•</span>
+                              <span>Tempo total gasto: <strong>{rankedUser.engagement.hasSpeedData ? rankedUser.engagement.officialTotalResponseTimeLabel : 'sem tempo novo'}</strong></span>
+                              <span className="text-slate-300">•</span>
+                              <span>Tempo médio: <strong>{rankedUser.engagement.hasSpeedData ? rankedUser.engagement.officialAverageResponseTimeLabel : 'sem tempo novo'}</strong></span>
+                              <span className="text-slate-300">•</span>
+                              <span>Carteira: <strong>{rankedUser.coins}</strong> moedas</span>
                             </div>
                             <div className="mt-2 flex flex-wrap gap-1">
                               {rankedUser.engagement.metaBreakdown.map(metaStatus => (
@@ -2541,16 +2622,16 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                             <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-brand-600 rounded-full transition-all"
-                                style={{ width: `${Math.min(100, Math.max(0, user.isAdmin ? rankedUser.engagement.rankingScore : rankedUser.engagement.aproveitamento))}%` }}
+                                style={{ width: `${Math.min(100, Math.max(0, rankedUser.engagement.rankingScore))}%` }}
                               />
                             </div>
                           </div>
                           <div className="shrink-0 flex flex-col items-end gap-0.5">
                             <div className="flex items-center gap-1 font-black text-brand-700 bg-brand-50 px-2 sm:px-3 py-1 rounded-lg border border-brand-100 text-sm sm:text-base">
-                              {user.isAdmin ? rankedUser.engagement.rankingScore : rankedUser.engagement.aproveitamento}% {user.isAdmin && <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-600" />}
+                              {rankedUser.engagement.rankingScore}% <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-600" />
                             </div>
                             <span className="text-[9px] text-slate-400 font-extrabold tracking-wider uppercase">
-                              {user.isAdmin ? 'Nota final' : 'Aproveitamento'}
+                              Pontuação oficial
                             </span>
                             {user.isAdmin && (
                               <button
@@ -2576,7 +2657,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                             Opções de Administrador (Critério de Classificação)
                           </span>
                           <span className="text-[11px] text-slate-500 block">
-                            Selecione como quer analisar: por nota justa média ou moedas totais na carteira.
+                            Selecione como quer analisar: por pontuação oficial média dos quizzes ou apenas por moedas disponíveis na carteira.
                           </span>
                         </div>
                         <div className="flex bg-slate-200/60 p-1 rounded-lg self-start sm:self-auto shrink-0">
@@ -2585,7 +2666,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                             onClick={() => setSectorRankingMetric('average')}
                             className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${sectorRankingMetric === 'average' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                           >
-                            Nota justa %
+                            Pontuação oficial %
                           </button>
                           <button
                             type="button"
@@ -2614,22 +2695,24 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-xs text-slate-500">
                                 <span><strong>{sector.memberCount}</strong> {sector.memberCount === 1 ? 'membro' : 'membros'}</span>
                                 <span className="text-slate-300">•</span>
-                                <span>Aproveitamento: <strong>{sector.aproveitamento}%</strong></span>
+                                <span>Pontuação oficial: <strong>{sector.score}%</strong></span>
+                                <span className="text-slate-300">•</span>
+                                <span>Pontos quizzes: <strong>{sector.totalQuizCoins}</strong></span>
                                 <span className="text-slate-300">•</span>
                                 <span>Metas completas: <strong>{sector.totalMetasConcluidas}</strong>/{sector.totalMetas}</span>
+                                <span className="text-slate-300">•</span>
+                                <span>Metas respondidas: <strong>{sector.totalMetasParticipadas}</strong>/{sector.totalMetas}</span>
                                 {user.isAdmin && (
                                   <>
                                     <span className="text-slate-300">•</span>
-                                    <span className={!showTotalWalletCoins ? 'text-brand-750 font-bold' : ''}>
-                                      Nota justa: <strong>{sector.score}%</strong>
-                                    </span>
+                                    <span>Acertos: <strong>{sector.totalCorrectAnswers}</strong>/{sector.totalQuestionsAnswered}</span>
                                     <span className="text-slate-300">•</span>
-                                    <span>Velocidade: <strong>{sector.speedScore}%</strong></span>
+                                    <span>Tempo total gasto: <strong>{sector.totalOfficialResponseTimeMs ? sector.officialTotalResponseTimeLabel : 'sem tempo novo'}</strong></span>
                                     <span className="text-slate-300">•</span>
-                                    <span>Pontos Quizzes: <strong>{sector.totalQuizCoins}</strong></span>
+                                    <span>Tempo médio: <strong>{sector.averageResponseTimeMs ? sector.averageResponseTimeLabel : 'sem tempo novo'}</strong></span>
                                     <span className="text-slate-300">•</span>
                                     <span className={showTotalWalletCoins ? 'text-brand-750 font-bold' : ''}>
-                                      Na Carteira: <strong>{sector.totalCoins}</strong> moedas
+                                      Na carteira: <strong>{sector.totalCoins}</strong> moedas
                                     </span>
                                   </>
                                 )}
@@ -2643,12 +2726,12 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                                   </>
                                 ) : (
                                   <>
-                                    {user.isAdmin ? sector.score : sector.aproveitamento}%
+                                    {sector.score}%
                                   </>
                                 )}
                               </div>
                               <span className="text-[9px] text-slate-400 font-extrabold tracking-wider uppercase">
-                                {showTotalWalletCoins ? 'Carteira' : user.isAdmin ? 'Nota justa' : 'Aproveitamento'}
+                                {showTotalWalletCoins ? 'Carteira' : 'Pontuação oficial'}
                               </span>
                             </div>
                           </div>
@@ -4410,9 +4493,9 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                   <div className="p-4 sm:p-6 space-y-6">
                     <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
                       <div className="rounded-2xl border border-brand-100 bg-white p-4 shadow-sm">
-                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Nota justa</p>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Pontuação oficial</p>
                         <p className="mt-1 text-3xl font-black text-brand-700 font-[Space_Grotesk]">{engagement.rankingScore}%</p>
-                        <p className="text-[11px] font-semibold text-slate-500">70% aproveitamento + velocidade + metas</p>
+                        <p className="text-[11px] font-semibold text-slate-500">pontos dos quizzes / 900 pontos possíveis</p>
                       </div>
                       <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
                         <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Aproveitamento</p>
@@ -4422,7 +4505,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       <div className="rounded-2xl border border-amber-100 bg-white p-4 shadow-sm">
                         <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Velocidade média</p>
                         <p className="mt-1 text-3xl font-black text-amber-700 font-[Space_Grotesk]">{engagement.hasSpeedData ? engagement.averageResponseTimeLabel : '--'}</p>
-                        <p className="text-[11px] font-semibold text-slate-500">{engagement.hasSpeedData ? `${engagement.speedScore}% no critério velocidade` : 'Sem tempo novo registrado'}</p>
+                        <p className="text-[11px] font-semibold text-slate-500">{engagement.hasSpeedData ? `${engagement.speedScore}% no indicador velocidade` : 'Sem tempo novo registrado'}</p>
                       </div>
                       <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
                         <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Metas concluídas</p>
