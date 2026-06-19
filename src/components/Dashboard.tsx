@@ -4707,14 +4707,14 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       Atenção
                     </span>
                     <h2 id="market-news-title" className="mt-2 text-xl font-black leading-tight tracking-tight sm:text-2xl font-[Space_Grotesk]">
-                      Prazo das Metas 1 e 2 prorrogado!
+                      Prazo das Metas 3 e 4 !
                     </h2>
                   </div>
                 </div>
 
                 <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
                   <p className="text-sm font-semibold leading-relaxed text-slate-600">
-                    ATENÇÃO: PRORROGADO A DATA LIMITE DAS METAS 1 E 2 ATÉ O DIA 12/06/2026.
+                    ATENÇÃO: METAS 3 E 4 VAI ACONTECER ATÉ O DIA 21/06/2026 ÁS 23:59.
                   </p>
 
                   <div className="mt-4 grid gap-2 text-xs font-bold text-slate-600">
