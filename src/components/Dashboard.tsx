@@ -4707,7 +4707,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                       Atenção
                     </span>
                     <h2 id="market-news-title" className="mt-2 text-xl font-black leading-tight tracking-tight sm:text-2xl font-[Space_Grotesk]">
-                      Prazo das Metas 3 e 4 !
+                      Prazo das Metas 3 e 4 prorrogadas !
                     </h2>
                   </div>
                 </div>
