@@ -1,1 +1,9 @@
+# Ignorar pastas de dependências
+node_modules/
+
+
+# Ignorar variáveis de ambiente
 .env
+
+# Ignorar arquivos de log
+
