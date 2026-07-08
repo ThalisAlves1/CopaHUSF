@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Home, LogOut, CheckCircle2, Building2, PlayCircle, Trophy, ShoppingBag, Coins, LayoutGrid, UserCheck, MessageSquare, Pill, Stethoscope, Droplets, ShieldAlert, ArrowLeft, BookOpen, Crown, User as UserIcon, AlertCircle, Zap, ArrowRightLeft, Search, ShieldCheck, Award, UserPlus, Trash2, Lock, Unlock, Upload, Image, Database, Wifi, WifiOff, Edit, X, RefreshCw, Hourglass } from 'lucide-react';
+import { Home, LogOut, CheckCircle2, Building2, PlayCircle, Trophy, ShoppingBag, Coins, LayoutGrid, UserCheck, MessageSquare, Pill, Stethoscope, Droplets, ShieldAlert, ArrowLeft, BookOpen, Crown, User as UserIcon, AlertCircle, Zap, ArrowRightLeft, Search, ShieldCheck, Award, UserPlus, Trash2, Lock, Unlock, Upload, Image, Database, Wifi, WifiOff, Edit, X, RefreshCw, Hourglass, Eye, EyeOff } from 'lucide-react';
 import { User, MetaProgress } from '../types';
 const Store = lazy(() => import('./Store').then(module => ({ default: module.Store })));
 const Quiz = lazy(() => import('./Quiz').then(module => ({ default: module.Quiz })));
@@ -9,7 +9,7 @@ const WelcomeScreen = lazy(() => import('./WelcomeScreen').then(module => ({ def
 const StudyMaterial = lazy(() => import('./StudyMaterial').then(module => ({ default: module.StudyMaterial })));
 import { getStoredUsers, formatCPF } from '../lib/auth';
 import { StickerDefinition, getStickerById, getAllStickers, getStoredStickers, saveStoredStickers } from '../lib/store';
-import { dbGetUsers, dbGetStickers, dbSaveSingleUser, dbDeleteUser, dbInsertSticker, dbUpdateSticker, dbDeleteSticker, dbSaveWholeCatalog, dbGetReleasedMetas, dbSaveReleasedMetas, dbGetPendingUserSyncCount, dbEnterVirtualQueue, dbLeaveVirtualQueue, getVirtualQueueSessionId, VIRTUAL_QUEUE_MAX_ACTIVE_USERS, VIRTUAL_QUEUE_REFRESH_MS, type VirtualQueueStatus, subscribeToUsers, subscribeToStickers, subscribeToSettings, DB_DEFAULT_STICKERS, isSupabaseConfigured, lastSupabaseError, uploadStickerImageFile, mapSupabaseUserRow, normalizeCpf } from '../lib/supabase';
+import { dbGetUsers, dbGetStickers, dbSaveSingleUser, dbDeleteUser, dbInsertSticker, dbUpdateSticker, dbDeleteSticker, dbSaveWholeCatalog, dbGetReleasedMetas, dbSaveReleasedMetas, dbGetPendingUserSyncCount, dbEnterVirtualQueue, dbLeaveVirtualQueue, getVirtualQueueSessionId, VIRTUAL_QUEUE_MAX_ACTIVE_USERS, VIRTUAL_QUEUE_REFRESH_MS, type VirtualQueueStatus, subscribeToUsers, subscribeToStickers, subscribeToSettings, DB_DEFAULT_STICKERS, isSupabaseConfigured, lastSupabaseError, uploadStickerImageFile, mapSupabaseUserRow, normalizeCpf, dbGetRankingVisibility, dbSaveRankingVisibility } from '../lib/supabase';
 import { StickerImage } from './StickerImage';
 import { appendActivityLog, createActivityEntry, formatActivityTime, getActivityBadgeClass, getActivityLog, getActivityTypeLabel } from '../lib/activity';
 
@@ -383,6 +383,9 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   const [searchQuery, setSearchQuery] = useState('');
   const [adminRefresh, setAdminRefresh] = useState(0);
   const [adminSection, setAdminSection] = useState<AdminSection>('overview');
+  const [rankingVisible, setRankingVisible] = useState(true);
+  const [rankingVisibilityReady, setRankingVisibilityReady] = useState(false);
+  const [showRankingNotice, setShowRankingNotice] = useState(false);
   const [adminViewedUserCpf, setAdminViewedUserCpf] = useState<string | null>(null);
   const [quizResult, setQuizResult] = useState<{coins: number, correct: number} | null>(null);
   const [showMarketNewsModal, setShowMarketNewsModal] = useState(false);
@@ -972,12 +975,43 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
       }
     };
 
+    const refreshRankingVisibility = async () => {
+      try {
+        const visible = await dbGetRankingVisibility();
+        if (active) {
+          setRankingVisible(visible);
+          setRankingVisibilityReady(true);
+        }
+      } catch (err) {
+        if (active) setRankingVisibilityReady(true);
+        console.warn('Erro ao atualizar visibilidade do ranking via realtime:', err);
+      }
+    };
+
     refreshReleasedMetas();
+    refreshRankingVisibility();
 
     const settingsSubscription = subscribeToSettings((payload) => {
       const row = payload.new || payload.old;
-      if (!row || row.key === 'released_metas') {
+      if (!row) return;
+
+      if (row.key === 'released_metas') {
         refreshReleasedMetas();
+      }
+
+      if (row.key === 'ranking_visibility') {
+        const rawValue = row.value;
+        const visible = typeof rawValue === 'boolean'
+          ? rawValue
+          : typeof rawValue === 'string'
+            ? rawValue === 'true'
+            : typeof rawValue === 'number'
+              ? rawValue !== 0
+              : true;
+        if (active) {
+          setRankingVisible(visible);
+          setRankingVisibilityReady(true);
+        }
       }
     });
 
@@ -998,6 +1032,11 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     };
   }, []);
 
+  useEffect(() => {
+    if (user.isAdmin || rankingVisible) {
+      setShowRankingNotice(false);
+    }
+  }, [user.isAdmin, rankingVisible]);
 
   const calculateUserEngagement = (u: User) => {
     // O ranking deve considerar sempre todas as 6 metas da Copa,
@@ -1314,6 +1353,11 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
   }, []);
 
   const handleTabChange = (tab: TabContent, mode: 'push' | 'replace' = 'push') => {
+    if (tab === 'ranking' && !user.isAdmin && !rankingVisible) {
+      setShowRankingNotice(true);
+      return;
+    }
+
     const route: DashboardHistoryState = {
       husfDashboardRoute: true,
       activeTab: tab,
@@ -1345,6 +1389,18 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
     if (openMarket) {
       setTradingInitialMode('mercado');
       handleTabChange('trocas');
+    }
+  };
+
+  const handleToggleRankingVisibility = async () => {
+    if (!user.isAdmin) return;
+
+    const nextValue = !rankingVisible;
+    setRankingVisible(nextValue);
+    try {
+      await dbSaveRankingVisibility(nextValue);
+    } catch (err) {
+      console.error('Erro ao salvar visibilidade do ranking:', err);
     }
   };
 
@@ -1991,6 +2047,50 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
 
   return (
     <div className="min-h-screen bg-slate-50/50 overflow-x-hidden">
+      <AnimatePresence>
+        {showRankingNotice && !user.isAdmin && !rankingVisible && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[180] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+            onClick={() => setShowRankingNotice(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 8 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 8 }}
+              className="w-full max-w-lg rounded-[2rem] border border-amber-200 bg-white p-6 sm:p-8 shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
+                <Crown className="h-7 w-7" />
+              </div>
+              <h2 className="mt-4 text-center text-2xl font-black text-slate-900 font-[Space_Grotesk]">Estamos próximos do resultado</h2>
+              <p className="mt-3 text-center text-sm sm:text-base leading-relaxed text-slate-600">
+                O ranking ficará disponível para você apenas no momento da premiação. Até lá, a equipe segue acompanhando o desempenho de todos com total transparência.
+              </p>
+              <div className="mt-5 flex flex-col sm:flex-row justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowRankingNotice(false)}
+                  className="rounded-2xl bg-brand-600 px-4 py-3 text-sm font-black text-white shadow-sm transition-all hover:bg-brand-700"
+                >
+                  Entendi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTabChange('inicio')}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition-all hover:bg-slate-50"
+                >
+                  Voltar ao início
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="max-w-7xl mx-auto w-full flex flex-col lg:flex-row gap-6 p-2 sm:p-6 lg:p-8">
         
         {/* Sidebar / Header */}
@@ -2147,7 +2247,7 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
               exit={{ opacity: 0, y: -10 }}
             >
               <Suspense fallback={<LazyPanelFallback />}>
-                <WelcomeScreen user={user} onNavigate={handleTabChange} summary={collaboratorHomeSummary} />
+                <WelcomeScreen user={user} onNavigate={handleTabChange} summary={collaboratorHomeSummary} rankingEnabled={user.isAdmin || rankingVisible} />
               </Suspense>
             </motion.div>
           )}
@@ -2536,32 +2636,33 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
               exit={{ opacity: 0, y: -10 }}
               className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col min-h-[400px]"
             >
-              <div className="bg-brand-600 p-6 md:p-8 text-white relative overflow-hidden shrink-0">
-                <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-brand-500 blur-3xl opacity-50 pointer-events-none" />
-                <h1 className="text-2xl sm:text-3xl font-bold mb-2 relative z-10 font-[Space_Grotesk] flex items-center gap-3">
-                  <Crown className="w-8 h-8 text-amber-300" />
-                  Ranking HUSF
-                </h1>
-                <p className="text-brand-50 relative z-10">Confira a classificação dos colaboradores e setores do hospital. Exibição otimizada com Top 100 para melhor desempenho.</p>
-              </div>
+              <>
+                <div className="bg-brand-600 p-6 md:p-8 text-white relative overflow-hidden shrink-0">
+                    <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-brand-500 blur-3xl opacity-50 pointer-events-none" />
+                    <h1 className="text-2xl sm:text-3xl font-bold mb-2 relative z-10 font-[Space_Grotesk] flex items-center gap-3">
+                      <Crown className="w-8 h-8 text-amber-300" />
+                      Ranking HUSF
+                    </h1>
+                    <p className="text-brand-50 relative z-10">Confira a classificação dos colaboradores e setores do hospital. Exibição otimizada com Top 100 para melhor desempenho.</p>
+                  </div>
 
-              <div className="flex border-b border-slate-200">
-                <button
-                  onClick={() => setRankingTab('individual')}
-                  className={`flex-1 py-4 font-bold text-sm sm:text-base border-b-2 transition-colors ${rankingTab === 'individual' ? 'border-brand-600 text-brand-700 bg-brand-50/50' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
-                >
-                  Ranking Individual
-                </button>
-                <button
-                  onClick={() => setRankingTab('setores')}
-                  className={`flex-1 py-4 font-bold text-sm sm:text-base border-b-2 transition-colors ${rankingTab === 'setores' ? 'border-brand-600 text-brand-700 bg-brand-50/50' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
-                >
-                  Ranking de Setores
-                </button>
-              </div>
-              
-              <div className="p-4 md:p-6 flex-1 overflow-y-auto">
-                {rankingTab === 'individual' ? (
+                  <div className="flex border-b border-slate-200">
+                    <button
+                      onClick={() => setRankingTab('individual')}
+                      className={`flex-1 py-4 font-bold text-sm sm:text-base border-b-2 transition-colors ${rankingTab === 'individual' ? 'border-brand-600 text-brand-700 bg-brand-50/50' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+                    >
+                      Ranking Individual
+                    </button>
+                    <button
+                      onClick={() => setRankingTab('setores')}
+                      className={`flex-1 py-4 font-bold text-sm sm:text-base border-b-2 transition-colors ${rankingTab === 'setores' ? 'border-brand-600 text-brand-700 bg-brand-50/50' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+                    >
+                      Ranking de Setores
+                    </button>
+                  </div>
+                  
+                  <div className="p-4 md:p-6 flex-1 overflow-y-auto">
+                    {rankingTab === 'individual' ? (
                   <div className="space-y-4">
                     <details className="group bg-brand-50 border border-brand-100 rounded-xl text-sm text-brand-900 overflow-hidden">
                       <summary className="flex items-center gap-3 p-3 sm:p-4 cursor-pointer select-none list-none">
@@ -2755,7 +2856,8 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                   </div>
                 )}
               </div>
-            </motion.div>
+            </>
+          </motion.div>
           )}
 
           {activeTab === 'perfil' && (
@@ -2881,6 +2983,28 @@ export function Dashboard({ user, onLogout, onBuyPack, onQuizFinish, onTradeComp
                   <p className="text-purple-100 max-w-2xl leading-relaxed text-sm">
                     Organize colaboradores, metas, figurinhas, recompensas e acompanhamento em tempo real em um painel mais limpo e profissional.
                   </p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                  <div>
+                    <h3 className="font-black text-slate-800 text-lg font-[Space_Grotesk] flex items-center gap-2">
+                      <Crown className="w-5 h-5 text-amber-500" />
+                      Visibilidade do Ranking
+                    </h3>
+                    <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+                      Controle se os colaboradores conseguem abrir o ranking ou veem uma mensagem informativa sobre a premiação.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleToggleRankingVisibility}
+                    className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-black transition-all active:scale-[0.98] ${rankingVisible ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'}`}
+                  >
+                    {rankingVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    {rankingVisible ? 'Ranking visível para colaboradores' : 'Ranking bloqueado para colaboradores'}
+                  </button>
                 </div>
               </div>
 

@@ -50,9 +50,10 @@ interface WelcomeScreenProps {
   user: User;
   onNavigate: (tab: 'inicio' | 'desafios' | 'album' | 'loja' | 'trocas' | 'ranking' | 'perfil' | 'admin' | 'estudo') => void;
   summary?: WelcomeSummary;
+  rankingEnabled?: boolean;
 }
 
-export function WelcomeScreen({ user, onNavigate, summary }: WelcomeScreenProps) {
+export function WelcomeScreen({ user, onNavigate, summary, rankingEnabled = true }: WelcomeScreenProps) {
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 12) return 'Bom dia';
@@ -95,13 +96,13 @@ export function WelcomeScreen({ user, onNavigate, summary }: WelcomeScreenProps)
       icon: <ArrowRightLeft className="w-6 h-6 text-indigo-600" />,
       color: 'border-indigo-100 hover:border-indigo-300 bg-indigo-50/20 text-indigo-800'
     },
-    {
-      id: 'ranking',
+    ...(rankingEnabled ? [{
+      id: 'ranking' as const,
       title: 'Ranking Geral',
       desc: 'Acompanhe a classificação individual e o desempenho geral dos setores.',
       icon: <Crown className="w-6 h-6 text-rose-600" />,
       color: 'border-rose-100 hover:border-rose-300 bg-rose-50/20 text-rose-800'
-    },
+    }] : []),
     {
       id: 'perfil',
       title: 'Meu Perfil',

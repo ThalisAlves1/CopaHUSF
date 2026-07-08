@@ -1171,6 +1171,70 @@ export async function dbSaveReleasedMetas(metas: number[]): Promise<void> {
   }
 }
 
+export async function dbGetRankingVisibility(): Promise<boolean> {
+  const getLocal = (): boolean => {
+    const stored = localStorage.getItem('husf_ranking_visible');
+    if (stored === null) return true;
+    try {
+      return stored === 'true';
+    } catch {
+      return true;
+    }
+  };
+
+  if (!isSupabaseConfigured || !supabaseClient) {
+    return getLocal();
+  }
+
+  try {
+    const { data, error } = await promiseWithTimeout(
+      supabaseClient
+        .from('husf_settings')
+        .select('value')
+        .eq('key', 'ranking_visibility')
+        .maybeSingle() as any,
+      15000
+    ) as any;
+
+    if (error) throw error;
+
+    let visible = true;
+    if (typeof data?.value === 'boolean') {
+      visible = data.value;
+    } else if (typeof data?.value === 'string') {
+      visible = data.value === 'true';
+    } else if (typeof data?.value === 'number') {
+      visible = data.value !== 0;
+    }
+
+    localStorage.setItem('husf_ranking_visible', String(visible));
+    return visible;
+  } catch (err) {
+    console.warn('Supabase ranking visibility query failed, loading from local storage:', err);
+    return getLocal();
+  }
+}
+
+export async function dbSaveRankingVisibility(visible: boolean): Promise<void> {
+  localStorage.setItem('husf_ranking_visible', String(visible));
+
+  if (!isSupabaseConfigured || !supabaseClient) return;
+
+  const { error } = await promiseWithTimeout(
+    supabaseClient
+      .from('husf_settings')
+      .upsert({
+        key: 'ranking_visibility',
+        value: visible,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' }) as any
+  ) as any;
+
+  if (error) {
+    console.error('Failed to sync ranking visibility to Supabase:', error);
+    throw error;
+  }
+}
 
 // ────────────────────────────────────────────────────────────────────────
 // STICKERS CATALOG SYNCHRONIZATION HELPERS
